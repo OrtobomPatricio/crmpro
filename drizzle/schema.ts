@@ -596,4 +596,17 @@ export const achievements = mysqlTable('achievements', {
 });
 
 export type Achievement = typeof achievements.$inferSelect;
-export type InsertAchievement = typeof achievements.$inferInsert;
+/**
+ * Internal Team Chat messages
+ */
+export const internalMessages = mysqlTable('internal_messages', {
+  id: int('id').autoincrement().primaryKey(),
+  senderId: int('senderId').notNull(),
+  recipientId: int('recipientId'), // If NULL, it's a message to "General" channel
+  content: text('content').notNull(),
+  isRead: boolean('isRead').default(false).notNull(),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+});
+
+export type InternalMessage = typeof internalMessages.$inferSelect;
+export type InsertInternalMessage = typeof internalMessages.$inferInsert;

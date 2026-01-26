@@ -44,15 +44,19 @@ import {
   ChevronRight,
   Settings,
   Database,
+  Slash,
 } from "lucide-react";
-import { CSSProperties, ReactNode, useEffect, useRef, useState } from "react";
-import { useLocation } from "wouter";
+import { CSSProperties, ReactNode, useEffect, useRef, useState, Fragment } from "react";
+import { useLocation, Link } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { trpc } from "@/lib/trpc";
 import { Button } from "./ui/button";
 import { KeyboardShortcutsDialog, useKeyboardShortcuts } from "./KeyboardShortcuts";
 import WelcomeTour from "./WelcomeTour";
 import { usePermissions } from "@/_core/hooks/usePermissions";
+import { TeamChatWidget } from "@/components/team-chat";
+import { CommandMenu } from "./CommandMenu";
+import { MobileBottomNav } from "./MobileBottomNav";
 
 type MenuItem = {
   icon: any;
@@ -153,6 +157,8 @@ export default function DashboardLayout({
         {children}
       </DashboardLayoutContent>
       {showTour && <WelcomeTour onComplete={() => setShowTour(false)} />}
+      <TeamChatWidget />
+      <MobileBottomNav />
     </SidebarProvider>
   );
 }
@@ -194,10 +200,28 @@ function DashboardLayoutContent({
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const activeMenuItem = menuItems.find(item => item.path === location);
   const isMobile = useIsMobile();
   const { isShortcutsOpen, setIsShortcutsOpen } = useKeyboardShortcuts();
   const { theme, toggleTheme } = useTheme();
+
+  // Generate Breadcrumbs
+  const getBreadcrumbs = () => {
+    const active = menuItems.find(item => item.path === location);
+    if (!active) return [{ label: "CRM", path: "/" }, { label: "Página desconocida", path: "#" }];
+
+    // Add hierarchical logic here if needed (e.g. Campaigns > Edit)
+    const crumbs = [{ label: "CRM", path: "/" }];
+
+    if (location !== "/") {
+      crumbs.push({ label: active.label, path: active.path });
+    } else {
+      crumbs.push({ label: "Dashboard", path: "/" });
+    }
+
+    return crumbs;
+  };
+
+  const breadcrumbs = getBreadcrumbs();
 
   useEffect(() => {
     if (isCollapsed) {
@@ -244,33 +268,38 @@ function DashboardLayoutContent({
       >
         <Sidebar
           collapsible="icon"
-          className="h-full w-full border-r"
+          className="h-full w-full border-r bg-sidebar"
           disableTransition={isResizing}
         >
-          <SidebarHeader className="h-16 justify-center border-b">
+          <SidebarHeader className="h-16 justify-center border-b border-sidebar-border">
             <div className="flex items-center gap-3 px-2 transition-all w-full">
               <button
                 onClick={toggleSidebar}
-                className="h-8 w-8 flex items-center justify-center hover:bg-accent rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0"
+                className="h-8 w-8 flex items-center justify-center hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0"
                 aria-label="Toggle navigation"
               >
-                <PanelLeft className="h-4 w-4 text-muted-foreground" />
+                <div className="h-6 w-6 rounded-md bg-primary flex items-center justify-center">
+                  <MessageCircle className="h-3.5 w-3.5 text-primary-foreground" />
+                </div>
               </button>
               {!isCollapsed ? (
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-md shadow-purple-500/20">
-                    <MessageCircle className="h-4 w-4 text-white" />
-                  </div>
-                  <span className="font-semibold tracking-tight truncate text-sm">
-                    Imagine Lab CRM
+                <div className="flex flex-col min-w-0">
+                  <span className="font-semibold tracking-tight truncate text-sm text-sidebar-foreground leading-none">
+                    Imagine Lab
+                  </span>
+                  <span className="text-[10px] text-muted-foreground uppercase font-medium tracking-wider mt-0.5">
+                    Pro CRM
                   </span>
                 </div>
               ) : null}
             </div>
           </SidebarHeader>
 
-          <SidebarContent className="gap-0">
-            <SidebarMenu className="px-2 py-1">
+          <SidebarContent className="gap-1 mt-2">
+            <SidebarMenu className="px-2">
+              <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground/70 uppercase tracking-wider mb-1 hidden group-data-[collapsible=icon]:hidden">
+                Principal
+              </div>
               {visibleMenuItems.map(item => {
                 const isActive = location === item.path;
                 return (
@@ -279,13 +308,13 @@ function DashboardLayoutContent({
                       isActive={isActive}
                       onClick={() => setLocation(item.path)}
                       tooltip={item.label}
-                      className={`h-10 transition-all duration-200 font-normal hover:bg-primary/10 ${isActive
-                        ? 'bg-primary/15 text-primary'
-                        : 'text-muted-foreground'
+                      className={`h-9 transition-all duration-200 font-normal hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ${isActive
+                        ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                        : 'text-sidebar-foreground/80'
                         }`}
                     >
                       <item.icon
-                        className={`h-[18px] w-[18px] transition-colors ${isActive ? "text-primary" : ""}`}
+                        className={`h-4 w-4 transition-colors ${isActive ? "text-primary" : "text-muted-foreground"}`}
                       />
                       <span className={isActive ? "font-medium" : ""}>{item.label}</span>
                     </SidebarMenuButton>
@@ -296,32 +325,36 @@ function DashboardLayoutContent({
 
             {/* Canales conectados */}
             {!isCollapsed && (
-              <div className="px-2 py-3 border-t border-border mt-2">
+              <div className="mt-4 px-2">
+                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground/70 uppercase tracking-wider mb-1">
+                  Conexiones
+                </div>
                 <ChannelsSection />
               </div>
             )}
           </SidebarContent>
 
-          <SidebarFooter className="p-3 border-t">
+          <SidebarFooter className="p-3 border-t border-sidebar-border bg-sidebar/50">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-accent/50 transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <Avatar className="h-9 w-9 border shrink-0">
-                    <AvatarFallback className="text-xs font-medium bg-gradient-to-br from-purple-500 to-pink-500 text-white">
+                <button className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-sidebar-accent transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <Avatar className="h-8 w-8 rounded-lg border border-sidebar-border shrink-0">
+                    <AvatarFallback className="rounded-lg text-xs font-medium bg-sidebar-accent text-sidebar-foreground">
                       {user?.name?.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
-                    <p className="text-sm font-medium truncate leading-none">
+                    <p className="text-sm font-medium truncate leading-none text-sidebar-foreground">
                       {user?.name || "-"}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate mt-1.5">
+                    <p className="text-[10px] text-muted-foreground truncate mt-1">
                       {user?.email || "-"}
                     </p>
                   </div>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground group-data-[collapsible=icon]:hidden ml-auto" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" className="w-56" side="right">
                 <DropdownMenuItem
                   onClick={() => setIsShortcutsOpen(true)}
                   className="cursor-pointer"
@@ -350,34 +383,49 @@ function DashboardLayoutContent({
         />
       </div>
 
-      <SidebarInset>
+      <SidebarInset className="pb-16 md:pb-0">
         {/* Top Header Bar */}
-        <div className="flex border-b h-14 items-center justify-between bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">
-          <div className="flex items-center gap-2">
-            {isMobile && <SidebarTrigger className="h-9 w-9 rounded-lg bg-background" />}
-            <div className="flex items-center gap-3">
-              <span className="tracking-tight text-foreground font-medium">
-                {activeMenuItem?.label ?? "Menu"}
-              </span>
+        <div className="flex border-b h-14 items-center justify-between bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40 gap-4">
+          <div className="flex items-center gap-2 overflow-hidden">
+            {/* Mobile Sidebar Trigger (Optional, since we have bottom nav) */}
+            {/* <SidebarTrigger className="md:hidden h-8 w-8" /> */}
+
+            {/* Breadcrumbs */}
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground overflow-hidden whitespace-nowrap mask-linear-fade">
+              {breadcrumbs.map((crumb, index) => (
+                <Fragment key={crumb.path}>
+                  {index > 0 && <ChevronRight className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />}
+                  <Link href={crumb.path}>
+                    <span className={`hover:text-foreground transition-colors cursor-pointer ${index === breadcrumbs.length - 1 ? "font-medium text-foreground" : ""}`}>
+                      {crumb.label}
+                    </span>
+                  </Link>
+                </Fragment>
+              ))}
             </div>
           </div>
 
-          {/* Theme Toggle Button */}
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={toggleTheme}
-            className="rounded-full bg-card/50 border-border/50 hover:bg-card hover:border-primary/50 transition-all duration-300"
-          >
-            {theme === "dark" ? (
-              <Sun className="h-5 w-5 text-yellow-400" />
-            ) : (
-              <Moon className="h-5 w-5 text-purple-500" />
-            )}
-          </Button>
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Command Menu */}
+            <CommandMenu />
+
+            {/* Theme Toggle Button */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={toggleTheme}
+              className="rounded-full bg-background border-border/50 hover:bg-accent hover:text-accent-foreground transition-all duration-300 h-8 w-8"
+            >
+              {theme === 'dark' ? (
+                <Sun className="h-4 w-4 text-yellow-400" />
+              ) : (
+                <Moon className="h-4 w-4 text-purple-500" />
+              )}
+            </Button>
+          </div>
         </div>
 
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <main className="flex-1 p-4 md:p-6 overflow-x-hidden">{children}</main>
       </SidebarInset>
 
       <KeyboardShortcutsDialog
@@ -397,47 +445,48 @@ function ChannelsSection() {
   const connectedChannels = channels.filter((ch: { isConnected: boolean }) => ch.isConnected);
 
   return (
-    <div>
+    <div className="group/channels">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center justify-between w-full text-xs font-medium text-muted-foreground hover:text-foreground transition-colors mb-2 px-1"
+        className="flex items-center justify-between w-full text-xs font-medium text-muted-foreground hover:text-foreground transition-colors mb-1 px-2 py-1 rounded hover:bg-sidebar-accent/50"
       >
         <span className="flex items-center gap-2">
           <Phone className="w-3.5 h-3.5" />
-          Canales ({connectedChannels.length})
+          Whatsapp ({connectedChannels.length})
         </span>
-        {isExpanded ? (
-          <ChevronDown className="w-3.5 h-3.5" />
-        ) : (
-          <ChevronRight className="w-3.5 h-3.5" />
-        )}
+        <ChevronRight className={`w-3 h-3 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
       </button>
 
       {isExpanded && (
-        <div className="space-y-1">
+        <div className="space-y-0.5 ml-1 border-l border-sidebar-border/50 pl-2 mt-1">
           {connectedChannels.length > 0 ? (
             connectedChannels.map((channel: { id: number; displayName: string | null; phoneNumber: string; status: string }) => (
               <button
                 key={channel.id}
                 onClick={() => setLocation('/chat')}
-                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-primary/10 transition-colors text-left"
+                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-xs hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors text-left group/item"
               >
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="truncate text-xs">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.4)]" />
+                <span className="truncate opacity-90 group-hover/item:opacity-100">
                   {channel.displayName || channel.phoneNumber}
                 </span>
               </button>
             ))
           ) : (
-            <p className="text-xs text-muted-foreground px-2 py-1">
-              No hay canales conectados
+            <p className="text-[10px] text-muted-foreground px-2 py-1 italic">
+              Sin conexión
             </p>
           )}
           <button
             onClick={() => setLocation('/monitoring')}
-            className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors mt-1"
           >
-            <span>+ Conectar canal</span>
+            <span className="flex items-center gap-1.5">
+              <div className="flex items-center justify-center w-3 h-3 rounded-full border border-dashed border-current">
+                <span className="text-[8px]">+</span>
+              </div>
+              Conectar número
+            </span>
           </button>
         </div>
       )}
