@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-alpine AS base
+FROM node:20-slim AS base
 WORKDIR /app
 RUN corepack enable
 
@@ -27,7 +27,7 @@ ENV VITE_APP_ID=$VITE_APP_ID
 ENV VITE_DEV_BYPASS_AUTH=$VITE_DEV_BYPASS_AUTH
 ENV VITE_ANALYTICS_ENDPOINT=$VITE_ANALYTICS_ENDPOINT
 ENV VITE_ANALYTICS_WEBSITE_ID=$VITE_ANALYTICS_WEBSITE_ID
-ENV NODE_OPTIONS="--max-old-space-size=2048"
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 # Split build command for better debugging
 RUN pnpm exec vite build
