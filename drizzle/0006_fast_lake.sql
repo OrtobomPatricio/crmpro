@@ -1,0 +1,1 @@
+ALTER TABLE `chat_messages` MODIFY COLUMN `messageType` enum('text','image','video','audio','document','location','sticker','contact','template') NOT NULL DEFAULT 'text';

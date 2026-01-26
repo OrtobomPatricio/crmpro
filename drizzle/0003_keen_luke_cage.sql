@@ -1,0 +1,1 @@
+ALTER TABLE `integrations` MODIFY COLUMN `events` json;

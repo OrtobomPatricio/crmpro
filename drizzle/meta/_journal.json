@@ -1,0 +1,69 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1768866058173,
+      "tag": "0000_stiff_roulette",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1768866173991,
+      "tag": "0001_previous_stellaris",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1768869330965,
+      "tag": "0002_lonely_devos",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1768869350172,
+      "tag": "0003_keen_luke_cage",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1768870397937,
+      "tag": "0004_zippy_dreaming_celestial",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1768935378061,
+      "tag": "0005_complete_professional_upgrade",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1768957849794,
+      "tag": "0006_fast_lake",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1769049726822,
+      "tag": "0007_thick_iron_lad",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1769166057194,
+      "tag": "0008_pro_upgrade_pack",
+      "breakpoints": true
+    }
+  ]
+}
