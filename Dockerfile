@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-slim AS base
+# standard node image (Debian Bookworm) includes common tools (git, ca-certs, etc.)
+FROM node:20 AS base
 WORKDIR /app
 RUN corepack enable
 
@@ -12,9 +13,9 @@ COPY package.json ./
 COPY patches ./patches
 
 # FORCE FRESH INSTALL to ensure Linux binaries for esbuild/vite are downloaded
-RUN rm -f pnpm-lock.yaml && \
-  corepack prepare pnpm@10.4.1 --activate && \
-  pnpm install
+RUN rm -f pnpm-lock.yaml
+RUN corepack prepare pnpm@10.4.1 --activate
+RUN pnpm install --reporter=verbose
 
 FROM deps AS build
 COPY . .
