@@ -331,7 +331,27 @@ export const appRouter = router({
         if (existing.length === 0) {
           await db.insert(appSettings).values({ dashboardConfig: input });
         } else {
-          await db.update(appSettings).set({ dashboardConfig: input });
+          // Merge with existing config
+          const current = (existing[0].dashboardConfig as Record<string, any>) || {};
+          await db.update(appSettings).set({ dashboardConfig: { ...current, ...input } });
+        }
+        return { success: true };
+      }),
+
+    updateDashboardLayout: permissionProcedure("settings.manage")
+      .input(z.object({ layout: z.array(z.any()) }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        const existing = await db.select().from(appSettings).limit(1);
+
+        if (existing.length === 0) {
+          await db.insert(appSettings).values({ dashboardConfig: { layout: input.layout } });
+        } else {
+          const current = (existing[0].dashboardConfig as Record<string, any>) || {};
+          await db.update(appSettings).set({
+            dashboardConfig: { ...current, layout: input.layout }
+          });
         }
         return { success: true };
       }),

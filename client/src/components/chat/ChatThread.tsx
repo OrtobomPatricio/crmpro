@@ -22,9 +22,14 @@ export function ChatThread({ conversationId }: ChatThreadProps) {
         { conversationId },
         {
             refetchInterval: 5000,
-            onSuccess: () => scrollToBottom()
         }
     );
+
+    useEffect(() => {
+        if (messages?.length) {
+            scrollToBottom();
+        }
+    }, [messages?.length]);
 
     const sendMessage = trpc.chat.sendMessage.useMutation({
         onSuccess: () => {

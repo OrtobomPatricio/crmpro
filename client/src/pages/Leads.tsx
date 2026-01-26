@@ -553,8 +553,8 @@ function LeadsContent() {
                                 : statusConfig[lead.status as LeadStatus]?.className
                             }
                             style={lead.pipelineStageId ? {
-                              borderColor: stages.find((s: any) => s.id === lead.pipelineStageId)?.color,
-                              color: stages.find((s: any) => s.id === lead.pipelineStageId)?.color,
+                              borderColor: stages.find((s: any) => s.id === lead.pipelineStageId)?.color || undefined,
+                              color: stages.find((s: any) => s.id === lead.pipelineStageId)?.color || undefined,
                             } : undefined}
                           >
                             {stages.find((s: any) => s.id === lead.pipelineStageId)?.name || lead.status}

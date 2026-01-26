@@ -97,11 +97,11 @@ export function CommandMenu() {
                     <CommandSeparator />
 
                     <CommandGroup heading="Acciones">
-                        <CommandItem onSelect={() => runCommand(() => toggleTheme())}>
+                        <CommandItem onSelect={() => runCommand(() => toggleTheme?.())}>
                             {theme === 'dark' ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
                             <span>Cambiar a modo {theme === 'dark' ? 'claro' : 'oscuro'}</span>
                         </CommandItem>
-                        <CommandItem onSelect={() => runCommand(() => logout())}>
+                        <CommandItem onSelect={() => runCommand(() => logout?.())}>
                             <User className="mr-2 h-4 w-4" />
                             <span>Cerrar Sesión</span>
                         </CommandItem>

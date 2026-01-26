@@ -202,14 +202,15 @@ const quickActions = [
 
 // Imports for Grid Layout
 import RGL, { Layout } from "react-grid-layout";
-const { Responsive, WidthProvider } = RGL;
+const Responsive = (RGL as any).Responsive;
+const WidthProvider = (RGL as any).WidthProvider;
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { useState, useEffect } from "react";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
-const DEFAULT_LAYOUT: Layout[] = [
+const DEFAULT_LAYOUT: Layout = [
   { i: "stats", x: 0, y: 0, w: 12, h: 2, minH: 2 },
   { i: "warmup", x: 0, y: 2, w: 6, h: 4, minH: 3 },
   { i: "status", x: 6, y: 2, w: 6, h: 4, minH: 3 },
@@ -229,19 +230,19 @@ function DashboardContent() {
   const { user } = useAuth();
   const { data: stats } = trpc.dashboard.getStats.useQuery();
   const { data: settings } = trpc.settings.get.useQuery();
-  const updateSettings = trpc.settings.update.useMutation();
+  const updateSettings = trpc.settings.updateDashboardLayout.useMutation();
   const [, setLocation] = useLocation();
 
   // Load layout from settings or default
-  const [layout, setLayout] = useState<Layout[]>(DEFAULT_LAYOUT);
+  const [layout, setLayout] = useState<Layout>(DEFAULT_LAYOUT);
 
   useEffect(() => {
     if (settings?.dashboardConfig?.layout) {
-      setLayout(settings.dashboardConfig.layout);
+      setLayout(settings.dashboardConfig.layout as Layout);
     }
   }, [settings?.dashboardConfig?.layout]);
 
-  const onLayoutChange = (currentLayout: Layout[]) => {
+  const onLayoutChange = (currentLayout: Layout) => {
     setLayout(currentLayout);
     // Save to DB (debounced normally, but direct here for Quick Win)
     // We only save if different from settings to avoid loops, 
@@ -253,10 +254,7 @@ function DashboardContent() {
 
   const saveLayout = () => {
     updateSettings.mutate({
-      dashboardConfig: {
-        ...((settings?.dashboardConfig as any) || {}),
-        layout
-      }
+      layout: layout as any
     });
     toast.success("Diseño del dashboard guardado");
   };
@@ -324,7 +322,7 @@ function DashboardContent() {
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
         cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
         rowHeight={60}
-        onLayoutChange={(l) => setLayout(l)}
+        onLayoutChange={(l: Layout) => setLayout(l)}
         draggableHandle=".drag-handle"
       >
         {/* Stats Grid */}
