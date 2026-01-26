@@ -201,7 +201,8 @@ const quickActions = [
 ];
 
 // Imports for Grid Layout
-import { Responsive, WidthProvider, Layout } from "react-grid-layout";
+import RGL, { Layout } from "react-grid-layout";
+const { Responsive, WidthProvider } = RGL;
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { useState, useEffect } from "react";

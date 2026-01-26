@@ -1,5 +1,5 @@
 import { useRef, forwardRef, useImperativeHandle } from 'react';
-import EmailEditor as UnlayerEditor, { EditorRef } from 'react-email-editor';
+import UnlayerEditor, { EditorRef } from 'react-email-editor';
 
 export interface EmailEditorHandle {
     exportHtml: () => Promise<{ html: string; design: any }>;

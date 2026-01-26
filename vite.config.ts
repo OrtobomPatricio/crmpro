@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
 import { vitePluginManusRuntime } from "vite-plugin-manus-runtime";
+import { VitePWA } from 'vite-plugin-pwa';
 
 // =============================================================================
 // Manus Debug Collector - Vite Plugin
@@ -150,7 +151,37 @@ function vitePluginManusDebugCollector(): Plugin {
   };
 }
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector()];
+const plugins = [
+  react(),
+  tailwindcss(),
+  jsxLocPlugin(),
+  vitePluginManusRuntime(),
+  vitePluginManusDebugCollector(),
+  VitePWA({
+    registerType: 'autoUpdate',
+    manifest: {
+      name: 'Imagine Lab CRM',
+      short_name: 'CRM Pro',
+      description: 'Professional CRM for Lead Management',
+      theme_color: '#4f46e5',
+      background_color: '#ffffff',
+      display: 'standalone',
+      orientation: 'portrait',
+      icons: [
+        {
+          src: 'logo-192.png',
+          sizes: '192x192',
+          type: 'image/png'
+        },
+        {
+          src: 'logo-512.png',
+          sizes: '512x512',
+          type: 'image/png'
+        }
+      ]
+    }
+  })
+];
 
 export default defineConfig({
   plugins,
