@@ -12,6 +12,9 @@ COPY package.json ./
 # But pnpm patch relies on 'patchedDependencies' in package.json.
 COPY patches ./patches
 
+# Install patch utility (required for pnpm patch)
+RUN apt-get update && apt-get install -y patch
+
 # FORCE FRESH INSTALL to ensure Linux binaries for esbuild/vite are downloaded
 RUN rm -f pnpm-lock.yaml
 RUN corepack prepare pnpm@10.4.1 --activate
