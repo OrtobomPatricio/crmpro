@@ -27,8 +27,12 @@ ENV VITE_APP_ID=$VITE_APP_ID
 ENV VITE_DEV_BYPASS_AUTH=$VITE_DEV_BYPASS_AUTH
 ENV VITE_ANALYTICS_ENDPOINT=$VITE_ANALYTICS_ENDPOINT
 ENV VITE_ANALYTICS_WEBSITE_ID=$VITE_ANALYTICS_WEBSITE_ID
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 
-RUN pnpm build
+# Split build command for better debugging
+RUN pnpm exec vite build
+RUN pnpm exec esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/index.js
+RUN pnpm exec esbuild server/scripts/migrate.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/migrate.js
 
 FROM base AS runner
 ENV NODE_ENV=production
