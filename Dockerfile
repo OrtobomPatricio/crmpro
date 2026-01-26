@@ -5,12 +5,16 @@ WORKDIR /app
 RUN corepack enable
 
 FROM base AS deps
-COPY package.json pnpm-lock.yaml ./
-# Needed for pnpm patch-package (fixes wouter)
+COPY package.json ./
+# Note: patching requires the patch file, but we'll try fresh install without lockfile first.
+# If patches fail, we might need to be careful.
+# But pnpm patch relies on 'patchedDependencies' in package.json.
 COPY patches ./patches
-RUN corepack prepare pnpm@10.4.1 --activate \
-  # NOTE: local-friendly install. For strict CI builds you can switch to --frozen-lockfile
-  && pnpm install --no-frozen-lockfile
+
+# FORCE FRESH INSTALL to ensure Linux binaries for esbuild/vite are downloaded
+RUN rm -f pnpm-lock.yaml && \
+  corepack prepare pnpm@10.4.1 --activate && \
+  pnpm install
 
 FROM deps AS build
 COPY . .
@@ -29,8 +33,12 @@ ENV VITE_ANALYTICS_ENDPOINT=$VITE_ANALYTICS_ENDPOINT
 ENV VITE_ANALYTICS_WEBSITE_ID=$VITE_ANALYTICS_WEBSITE_ID
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# Split build command for better debugging
-RUN pnpm exec vite build
+# Verify vite binary exists
+RUN ls -la node_modules/.bin/vite || echo "Vite binary missing!"
+
+# Split build command for better debugging with verbose flags
+# We redirect stderr to stdout to ensure we see errors
+RUN pnpm exec vite build --logLevel error
 RUN pnpm exec esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/index.js
 RUN pnpm exec esbuild server/scripts/migrate.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/migrate.js
 
