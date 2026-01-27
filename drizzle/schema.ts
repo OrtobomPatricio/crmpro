@@ -604,6 +604,7 @@ export const internalMessages = mysqlTable('internal_messages', {
   senderId: int('senderId').notNull(),
   recipientId: int('recipientId'), // If NULL, it's a message to "General" channel
   content: text('content').notNull(),
+  attachments: json('attachments').$type<{ type: 'image' | 'video' | 'file'; url: string; name: string }[]>(), // Array of attachments
   isRead: boolean('isRead').default(false).notNull(),
   createdAt: timestamp('createdAt').defaultNow().notNull(),
 });

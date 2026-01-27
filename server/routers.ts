@@ -2687,12 +2687,127 @@ export const appRouter = router({
         return { success: true };
       }),
   }),
+
+  // Dashboard Widgets Data
+  dashboard: router({
+    getPipelineFunnel: permissionProcedure("dashboard.view")
+      .query(async () => {
+        const db = await getDb();
+        if (!db) return [];
+
+        // Get lead counts by pipeline stage
+        const stageCounts = await db
+          .select({
+            stageId: leads.pipelineStageId,
+            stageName: pipelineStages.name,
+            stageColor: pipelineStages.color,
+            stageOrder: pipelineStages.order,
+            count: sql<number>`count(*)`,
+          })
+          .from(leads)
+          .leftJoin(pipelineStages, eq(leads.pipelineStageId, pipelineStages.id))
+          .where(sql`${leads.pipelineStageId} IS NOT NULL`)
+          .groupBy(leads.pipelineStageId, pipelineStages.name, pipelineStages.color, pipelineStages.order)
+          .orderBy(asc(pipelineStages.order));
+
+        return stageCounts.map(s => ({
+          stage: s.stageName || "Sin etapa",
+          count: Number(s.count),
+          color: s.stageColor || "#e2e8f0",
+        }));
+      }),
+
+    getLeaderboard: permissionProcedure("dashboard.view")
+      .query(async () => {
+        const db = await getDb();
+        if (!db) return [];
+
+        // Get top agents by number of won deals and total commission
+        const leaderboard = await db
+          .select({
+            userId: leads.assignedToId,
+            userName: users.name,
+            dealsWon: sql<number>`count(*)`,
+            totalCommission: sql<number>`sum(${leads.commission})`,
+          })
+          .from(leads)
+          .leftJoin(users, eq(leads.assignedToId, users.id))
+          .where(eq(leads.status, "won"))
+          .groupBy(leads.assignedToId, users.name)
+          .orderBy(desc(sql`sum(${leads.commission})`))
+          .limit(5);
+
+        return leaderboard.map((agent, index) => ({
+          rank: index + 1,
+          name: agent.userName || "Sin asignar",
+          dealsWon: Number(agent.dealsWon),
+          commission: Number(agent.totalCommission || 0),
+        }));
+      }),
+
+    getUpcomingAppointments: permissionProcedure("dashboard.view")
+      .query(async () => {
+        const db = await getDb();
+        if (!db) return [];
+
+        const upcoming = await db
+          .select({
+            id: appointments.id,
+            firstName: appointments.firstName,
+            lastName: appointments.lastName,
+            phone: appointments.phone,
+            appointmentDate: appointments.appointmentDate,
+            appointmentTime: appointments.appointmentTime,
+            status: appointments.status,
+            reasonName: appointmentReasons.name,
+          })
+          .from(appointments)
+          .leftJoin(appointmentReasons, eq(appointments.reasonId, appointmentReasons.id))
+          .where(
+            and(
+              sql`${appointments.appointmentDate} >= CURDATE()`,
+              inArray(appointments.status, ["scheduled", "confirmed"])
+            )
+          )
+          .orderBy(asc(appointments.appointmentDate), asc(appointments.appointmentTime))
+          .limit(5);
+
+        return upcoming;
+      }),
+
+    getRecentActivity: permissionProcedure("dashboard.view")
+      .query(async () => {
+        const db = await getDb();
+        if (!db) return [];
+
+        const activities = await db
+          .select({
+            id: activityLogs.id,
+            action: activityLogs.action,
+            entityType: activityLogs.entityType,
+            entityId: activityLogs.entityId,
+            userName: users.name,
+            createdAt: activityLogs.createdAt,
+          })
+          .from(activityLogs)
+          .leftJoin(users, eq(activityLogs.userId, users.id))
+          .orderBy(desc(activityLogs.createdAt))
+          .limit(10);
+
+        return activities;
+      }),
+  }),
   // Internal Team Chat
   internalChat: router({
     send: protectedProcedure
       .input(z.object({
         content: z.string().min(1),
         recipientId: z.number().optional().nullable(), // Null = General
+        attachments: z.array(z.object({
+          type: z.enum(['image', 'video', 'file']),
+          url: z.string(),
+          name: z.string()
+        })).optional(),
       }))
       .mutation(async ({ input, ctx }) => {
         const db = await getDb();
@@ -2702,6 +2817,7 @@ export const appRouter = router({
           senderId: ctx.user.id,
           recipientId: input.recipientId ?? null,
           content: input.content,
+          attachments: input.attachments,
         });
 
         return { success: true };
@@ -2720,6 +2836,7 @@ export const appRouter = router({
           const msgs = await db.select({
             id: internalMessages.id,
             content: internalMessages.content,
+            attachments: internalMessages.attachments,
             createdAt: internalMessages.createdAt,
             senderId: internalMessages.senderId,
             senderName: users.name,
@@ -2736,6 +2853,7 @@ export const appRouter = router({
           const msgs = await db.select({
             id: internalMessages.id,
             content: internalMessages.content,
+            attachments: internalMessages.attachments,
             createdAt: internalMessages.createdAt,
             senderId: internalMessages.senderId,
             senderName: users.name,

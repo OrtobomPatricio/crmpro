@@ -28,8 +28,25 @@ import {
   Calendar,
   Activity,
   FileText,
-  ArrowUpRight
+  ChevronRight,
+  MenuIcon,
+  User,
+  ChevronLeft,
+  ArrowUpRight,
+  Pencil,
+  Save,
+  X,
 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Responsive as ResponsiveGridLayoutBase, Layout, WidthProvider } from "react-grid-layout";
+import "react-grid-layout/css/styles.css";
+import "react-resizable/css/styles.css";
+import {
+  PipelineFunnelWidget,
+  AgentLeaderboardWidget,
+  UpcomingAppointmentsWidget,
+  RecentActivityWidget
+} from "@/components/dashboard-widgets";
 
 interface WarmupNumber {
   id: number;
@@ -241,12 +258,31 @@ const WidthProvider = (ComposedComponent: any) => {
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
+import { Pencil, Save, X } from "lucide-react"; // Add these imports
+
+// ... existing imports ...
+
+// Updated Layout with individual stats
 const DEFAULT_LAYOUT: Layout = [
-  { i: "stats", x: 0, y: 0, w: 12, h: 2, minH: 2 },
+  // Stats Row (split into 4)
+  { i: "stat-leads", x: 0, y: 0, w: 3, h: 2, minH: 2 },
+  { i: "stat-whatsapp", x: 3, y: 0, w: 3, h: 2, minH: 2 },
+  { i: "stat-messages", x: 6, y: 0, w: 3, h: 2, minH: 2 },
+  { i: "stat-conversion", x: 9, y: 0, w: 3, h: 2, minH: 2 },
+
+  // Warmup & Status
   { i: "warmup", x: 0, y: 2, w: 6, h: 4, minH: 3 },
   { i: "status", x: 6, y: 2, w: 6, h: 4, minH: 3 },
-  { i: "quick-actions", x: 0, y: 6, w: 12, h: 4, minH: 3 },
-  { i: "recent-leads", x: 0, y: 10, w: 12, h: 4, minH: 3 },
+
+  // NEW WIDGETS ROW
+  { i: "pipeline-funnel", x: 0, y: 6, w: 6, h: 5, minH: 4 },
+  { i: "agent-leaderboard", x: 6, y: 6, w: 6, h: 5, minH: 4 },
+  { i: "upcoming-appointments", x: 0, y: 11, w: 6, h: 5, minH: 4 },
+  { i: "recent-activity", x: 6, y: 11, w: 6, h: 5, minH: 4 },
+
+  // Quick Actions & Recent
+  { i: "quick-actions", x: 0, y: 16, w: 12, h: 4, minH: 3 },
+  { i: "recent-leads", x: 0, y: 20, w: 12, h: 4, minH: 3 },
 ];
 
 export default function Dashboard() {
@@ -264,8 +300,8 @@ function DashboardContent() {
   const updateSettings = trpc.settings.updateDashboardLayout.useMutation();
   const [, setLocation] = useLocation();
 
-  // Load layout from settings or default
   const [layout, setLayout] = useState<Layout>(DEFAULT_LAYOUT);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (settings?.dashboardConfig?.layout) {
@@ -273,21 +309,21 @@ function DashboardContent() {
     }
   }, [settings?.dashboardConfig?.layout]);
 
-  const onLayoutChange = (currentLayout: Layout) => {
-    setLayout(currentLayout);
-    // Save to DB (debounced normally, but direct here for Quick Win)
-    // We only save if different from settings to avoid loops, 
-    // but onLayoutChange triggers on mount too sometimes.
-    // Ideally use lodash.debounce.
-    // For now, we will just update local state and have a "Save Layout" button?
-    // User requested "Customizable", so auto-save is better.
-  };
-
   const saveLayout = () => {
     updateSettings.mutate({
       layout: layout as any
     });
     toast.success("Diseño del dashboard guardado");
+    setIsEditing(false);
+  };
+
+  const cancelEdit = () => {
+    if (settings?.dashboardConfig?.layout) {
+      setLayout(settings.dashboardConfig.layout as Layout);
+    } else {
+      setLayout(DEFAULT_LAYOUT);
+    }
+    setIsEditing(false);
   };
 
   // Filter quick actions based on dashboard config
@@ -296,6 +332,7 @@ function DashboardContent() {
 
   const statCards = [
     {
+      key: "stat-leads",
       title: "Total Leads",
       value: stats?.totalLeads ?? 0,
       description: "Leads en el sistema",
@@ -303,6 +340,7 @@ function DashboardContent() {
       iconColor: "icon-container-blue",
     },
     {
+      key: "stat-whatsapp",
       title: "Números WhatsApp",
       value: stats?.totalNumbers ?? 0,
       description: `${stats?.activeNumbers ?? 0} activos`,
@@ -310,6 +348,7 @@ function DashboardContent() {
       iconColor: "icon-container-green",
     },
     {
+      key: "stat-messages",
       title: "Mensajes Hoy",
       value: stats?.messagesToday ?? 0,
       description: "Mensajes enviados",
@@ -317,6 +356,7 @@ function DashboardContent() {
       iconColor: "icon-container-purple",
     },
     {
+      key: "stat-conversion",
       title: "Tasa de Conversión",
       value: `${stats?.conversionRate ?? 0}%`,
       description: "Leads ganados",
@@ -338,13 +378,30 @@ function DashboardContent() {
             Bienvenido, {user?.name?.split(' ')[0] ?? 'Usuario'}
           </h1>
           <p className="text-muted-foreground">
-            Arrastra y suelta los elementos para personalizar tu vista.
+            {isEditing
+              ? "Arrastra y redimensiona los widgets a tu gusto."
+              : "Aquí tienes el resumen de tu CRM."}
           </p>
         </div>
-        <Button onClick={saveLayout} size="sm" variant="outline" className="gap-2">
-          <LayoutGrid className="h-4 w-4" />
-          Guardar Diseño
-        </Button>
+        <div className="flex gap-2">
+          {isEditing ? (
+            <>
+              <Button onClick={cancelEdit} size="sm" variant="ghost" className="gap-2 text-muted-foreground">
+                <X className="h-4 w-4" />
+                Cancelar
+              </Button>
+              <Button onClick={saveLayout} size="sm" className="gap-2 bg-green-600 hover:bg-green-700 text-white">
+                <Save className="h-4 w-4" />
+                Guardar Diseño
+              </Button>
+            </>
+          ) : (
+            <Button onClick={() => setIsEditing(true)} size="sm" variant="outline" className="gap-2">
+              <Pencil className="h-4 w-4" />
+              Editar Diseño
+            </Button>
+          )}
+        </div>
       </div>
 
       <ResponsiveGridLayout
@@ -355,38 +412,40 @@ function DashboardContent() {
         rowHeight={100}
         onLayoutChange={(l: Layout) => setLayout(l)}
         draggableHandle=".drag-handle"
+        isDraggable={isEditing}
+        isResizable={isEditing}
       >
-        {/* Stats Grid */}
-        <div key="stats" className="bg-background/50 rounded-lg p-2 border drag-handle group relative">
-          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 cursor-move p-1 bg-muted rounded">
-            <LayoutGrid className="h-4 w-4 text-muted-foreground" />
+        {/* Individual Stats Cards */}
+        {statCards.map((stat) => (
+          <div key={stat.key} className={`bg-background/50 rounded-lg p-0.5 border group relative ${isEditing ? 'ring-2 ring-primary/20 ring-dashed' : ''}`}>
+            {isEditing && (
+              <div className="absolute top-2 right-2 z-10 cursor-move p-1 bg-muted rounded drag-handle hover:bg-primary hover:text-primary-foreground transition-colors">
+                <LayoutGrid className="h-4 w-4" />
+              </div>
+            )}
+            <Card className="h-full flex flex-col justify-between shadow-none border-0 bg-transparent">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  {stat.title}
+                </CardTitle>
+                <div className={`icon-container ${stat.iconColor}`}>
+                  <stat.icon className="h-5 w-5" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stat.value}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {stat.description}
+                </p>
+              </CardContent>
+            </Card>
           </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 h-full">
-            {statCards.map((stat) => (
-              <Card key={stat.title} className="action-card h-full flex flex-col justify-between">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {stat.title}
-                  </CardTitle>
-                  <div className={`icon-container ${stat.iconColor}`}>
-                    <stat.icon className="h-5 w-5" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {stat.description}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
+        ))}
 
         {/* Warm-up Progress */}
-        <div key="warmup">
+        <div key="warmup" className={isEditing ? 'ring-2 ring-primary/20 ring-dashed rounded-lg' : ''}>
           <Card className="glass-card h-full flex flex-col">
-            <CardHeader className="drag-handle cursor-move">
+            <CardHeader className={`${isEditing ? 'drag-handle cursor-move' : ''} transition-colors ${isEditing ? 'bg-muted/30' : ''}`}>
               <CardTitle className="flex items-center gap-2">
                 <div className="icon-container icon-container-yellow">
                   <Zap className="h-5 w-5" />
@@ -427,9 +486,9 @@ function DashboardContent() {
         </div>
 
         {/* Number Status Overview */}
-        <div key="status">
+        <div key="status" className={isEditing ? 'ring-2 ring-primary/20 ring-dashed rounded-lg' : ''}>
           <Card className="glass-card h-full flex flex-col">
-            <CardHeader className="drag-handle cursor-move">
+            <CardHeader className={`${isEditing ? 'drag-handle cursor-move' : ''} transition-colors ${isEditing ? 'bg-muted/30' : ''}`}>
               <CardTitle className="flex items-center gap-2">
                 <div className="icon-container icon-container-green">
                   <Phone className="h-5 w-5" />
@@ -485,25 +544,62 @@ function DashboardContent() {
           </Card>
         </div>
 
+        {/* NEW WIDGETS */}
+        <div key="pipeline-funnel" className={isEditing ? 'ring-2 ring-primary/20 ring-dashed rounded-lg' : ''}>
+          {isEditing && (
+            <div className="absolute top-2 right-2 z-10 cursor-move p-1 bg-muted rounded drag-handle hover:bg-primary hover:text-primary-foreground transition-colors">
+              <LayoutGrid className="h-4 w-4" />
+            </div>
+          )}
+          <PipelineFunnelWidget />
+        </div>
+
+        <div key="agent-leaderboard" className={isEditing ? 'ring-2 ring-primary/20 ring-dashed rounded-lg' : ''}>
+          {isEditing && (
+            <div className="absolute top-2 right-2 z-10 cursor-move p-1 bg-muted rounded drag-handle hover:bg-primary hover:text-primary-foreground transition-colors">
+              <LayoutGrid className="h-4 w-4" />
+            </div>
+          )}
+          <AgentLeaderboardWidget />
+        </div>
+
+        <div key="upcoming-appointments" className={isEditing ? 'ring-2 ring-primary/20 ring-dashed rounded-lg' : ''}>
+          {isEditing && (
+            <div className="absolute top-2 right-2 z-10 cursor-move p-1 bg-muted rounded drag-handle hover:bg-primary hover:text-primary-foreground transition-colors">
+              <LayoutGrid className="h-4 w-4" />
+            </div>
+          )}
+          <UpcomingAppointmentsWidget />
+        </div>
+
+        <div key="recent-activity" className={isEditing ? 'ring-2 ring-primary/20 ring-dashed rounded-lg' : ''}>
+          {isEditing && (
+            <div className="absolute top-2 right-2 z-10 cursor-move p-1 bg-muted rounded drag-handle hover:bg-primary hover:text-primary-foreground transition-colors">
+              <LayoutGrid className="h-4 w-4" />
+            </div>
+          )}
+          <RecentActivityWidget />
+        </div>
+
         {/* Quick Actions */}
-        <div key="quick-actions">
+        <div key="quick-actions" className={isEditing ? 'ring-2 ring-primary/20 ring-dashed rounded-lg' : ''}>
           <div className="h-full flex flex-col bg-background/50 rounded-lg p-4 border relative group">
-            <div className="mb-4 flex items-center justify-between drag-handle cursor-move">
+            <div className={`mb-4 flex items-center justify-between ${isEditing ? 'drag-handle cursor-move' : ''}`}>
               <h2 className="text-xl font-semibold">Acciones Rápidas</h2>
-              <LayoutGrid className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100" />
+              {isEditing && <LayoutGrid className="h-4 w-4 text-muted-foreground" />}
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 overflow-auto flex-1">
               {visibleActions.map((action) => (
                 <div
                   key={action.key}
-                  onClick={() => setLocation(action.path)}
-                  className={`group relative flex flex-col justify-between p-4 rounded-xl border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all cursor-pointer ${action.hoverColor} h-[140px]`}
+                  onClick={() => !isEditing && setLocation(action.path)}
+                  className={`group relative flex flex-col justify-between p-4 rounded-xl border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all ${!isEditing ? 'cursor-pointer' : ''} ${action.hoverColor} h-[140px]`}
                 >
                   <div className="flex items-start justify-between">
                     <div className={`icon-container ${action.iconColor}`}>
                       <action.icon className="h-5 w-5" />
                     </div>
-                    <ArrowUpRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    {!isEditing && <ArrowUpRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />}
                   </div>
                   <div className="mt-4">
                     <h3 className="font-semibold">
@@ -520,9 +616,9 @@ function DashboardContent() {
         </div>
 
         {/* Recent Activity */}
-        <div key="recent-leads">
+        <div key="recent-leads" className={isEditing ? 'ring-2 ring-primary/20 ring-dashed rounded-lg' : ''}>
           <Card className="glass-card h-full flex flex-col">
-            <CardHeader className="drag-handle cursor-move">
+            <CardHeader className={`${isEditing ? 'drag-handle cursor-move' : ''} transition-colors ${isEditing ? 'bg-muted/30' : ''}`}>
               <CardTitle>Leads Recientes</CardTitle>
               <CardDescription>
                 Últimos leads agregados al sistema
@@ -539,7 +635,7 @@ function DashboardContent() {
                     <div
                       key={lead.id}
                       className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                      onClick={() => setLocation('/leads')}
+                      onClick={() => !isEditing && setLocation('/leads')}
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">

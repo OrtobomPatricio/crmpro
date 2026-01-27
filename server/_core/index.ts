@@ -13,6 +13,9 @@ import { sql, eq } from "drizzle-orm";
 import { users, appSettings } from "../../drizzle/schema";
 import { initReminderScheduler } from "../reminderScheduler";
 import { startCampaignWorker } from "../services/campaign-worker";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 
 import { runMigrations } from "../scripts/migrate";
 
@@ -228,6 +231,40 @@ async function startServer() {
 
   // WhatsApp Cloud API webhook
   registerWhatsAppWebhookRoutes(app);
+
+  // --- FILE UPLOAD ENDPOINT ---
+  const storage = multer.diskStorage({
+    destination: function (_req, _file, cb) {
+      const uploadDir = path.join(process.cwd(), "client/public/uploads");
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
+    },
+    filename: function (_req, file, cb) {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, uniqueSuffix + path.extname(file.originalname));
+    }
+  });
+
+  const upload = multer({ storage: storage });
+
+  app.post('/api/upload', upload.array('files'), (req, res) => {
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    const uploadedFiles = files.map(file => ({
+      name: file.originalname,
+      url: `/uploads/${file.filename}`, // Served via static
+      type: file.mimetype.startsWith('image/') ? 'image' :
+        file.mimetype.startsWith('video/') ? 'video' : 'file',
+      size: file.size
+    }));
+
+    res.json({ files: uploadedFiles });
+  });
 
   // tRPC API
   app.use(

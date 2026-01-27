@@ -71,6 +71,13 @@
       "when": 1769533760106,
       "tag": "0009_quick_corsair",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1769536344748,
+      "tag": "0010_illegal_lucky_pierre",
+      "breakpoints": true
     }
   ]
 }
