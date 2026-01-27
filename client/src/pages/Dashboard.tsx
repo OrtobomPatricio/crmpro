@@ -202,14 +202,14 @@ const quickActions = [
 
 // Imports for Grid Layout
 // Attempt 4: Force CJS via Vite Alias + Default Import
-import RGL from "react-grid-layout";
+import RGL, { type Layout } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { useState, useEffect } from "react";
 
 // In CJS build, RGL is the default export, and properties are attached to it.
-const Responsive = RGL.Responsive;
-const WidthProvider = RGL.WidthProvider;
+const Responsive = (RGL as any).Responsive;
+const WidthProvider = (RGL as any).WidthProvider;
 
 // Debugging
 console.log('[Dashboard] RGL CJS Import:', { RGL, Responsive, WidthProvider });

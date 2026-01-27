@@ -119,12 +119,15 @@ const plugins = [
 export default defineConfig({
   plugins,
   resolve: {
-    alias: {
-      "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
-      "@assets": path.resolve(import.meta.dirname, "attached_assets"),
-      "react-grid-layout": path.resolve(import.meta.dirname, "node_modules/react-grid-layout/dist/index.js"),
-    },
+    alias: [
+      { find: "@", replacement: path.resolve(import.meta.dirname, "client", "src") },
+      { find: "@shared", replacement: path.resolve(import.meta.dirname, "shared") },
+      { find: "@assets", replacement: path.resolve(import.meta.dirname, "attached_assets") },
+      {
+        find: /^react-grid-layout$/, // Exact match only!
+        replacement: path.resolve(import.meta.dirname, "node_modules/react-grid-layout/dist/index.js")
+      },
+    ],
   },
   envDir: path.resolve(import.meta.dirname),
   root: path.resolve(import.meta.dirname, "client"),
