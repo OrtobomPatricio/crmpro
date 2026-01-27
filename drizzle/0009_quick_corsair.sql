@@ -31,9 +31,110 @@ CREATE TABLE IF NOT EXISTS `internal_messages` (
 	CONSTRAINT `internal_messages_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
-ALTER TABLE `app_settings` ADD `salesConfig` json;--> statement-breakpoint
-ALTER TABLE `campaign_recipients` ADD `whatsappMessageId` varchar(128);--> statement-breakpoint
-ALTER TABLE `campaigns` ADD `messagesRead` int DEFAULT 0 NOT NULL;--> statement-breakpoint
-ALTER TABLE `leads` ADD `kanbanOrder` int DEFAULT 0 NOT NULL;--> statement-breakpoint
-ALTER TABLE `leads` ADD `value` decimal(12,2) DEFAULT '0.00';--> statement-breakpoint
-ALTER TABLE `users` ADD `customRole` varchar(64);
+SET @dbname = DATABASE();
+SET @tablename = "app_settings";
+SET @columnname = "salesConfig";
+SET @preparedStatement = (SELECT IF(
+  (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE
+      (table_name = @tablename)
+      AND (table_schema = @dbname)
+      AND (column_name = @columnname)
+  ) > 0,
+  "SELECT 1",
+  "ALTER TABLE app_settings ADD salesConfig json;"
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
+--> statement-breakpoint
+SET @dbname = DATABASE();
+SET @tablename = "campaign_recipients";
+SET @columnname = "whatsappMessageId";
+SET @preparedStatement = (SELECT IF(
+  (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE
+      (table_name = @tablename)
+      AND (table_schema = @dbname)
+      AND (column_name = @columnname)
+  ) > 0,
+  "SELECT 1",
+  "ALTER TABLE campaign_recipients ADD whatsappMessageId varchar(128);"
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
+--> statement-breakpoint
+SET @dbname = DATABASE();
+SET @tablename = "campaigns";
+SET @columnname = "messagesRead";
+SET @preparedStatement = (SELECT IF(
+  (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE
+      (table_name = @tablename)
+      AND (table_schema = @dbname)
+      AND (column_name = @columnname)
+  ) > 0,
+  "SELECT 1",
+  "ALTER TABLE campaigns ADD messagesRead int DEFAULT 0 NOT NULL;"
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
+--> statement-breakpoint
+SET @dbname = DATABASE();
+SET @tablename = "leads";
+SET @columnname = "kanbanOrder";
+SET @preparedStatement = (SELECT IF(
+  (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE
+      (table_name = @tablename)
+      AND (table_schema = @dbname)
+      AND (column_name = @columnname)
+  ) > 0,
+  "SELECT 1",
+  "ALTER TABLE leads ADD kanbanOrder int DEFAULT 0 NOT NULL;"
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
+--> statement-breakpoint
+SET @dbname = DATABASE();
+SET @tablename = "leads";
+SET @columnname = "value";
+SET @preparedStatement = (SELECT IF(
+  (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE
+      (table_name = @tablename)
+      AND (table_schema = @dbname)
+      AND (column_name = @columnname)
+  ) > 0,
+  "SELECT 1",
+  "ALTER TABLE leads ADD value decimal(12,2) DEFAULT '0.00';"
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
+--> statement-breakpoint
+SET @dbname = DATABASE();
+SET @tablename = "users";
+SET @columnname = "customRole";
+SET @preparedStatement = (SELECT IF(
+  (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE
+      (table_name = @tablename)
+      AND (table_schema = @dbname)
+      AND (column_name = @columnname)
+  ) > 0,
+  "SELECT 1",
+  "ALTER TABLE users ADD customRole varchar(64);"
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
