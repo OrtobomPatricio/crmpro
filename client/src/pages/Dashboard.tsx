@@ -6,6 +6,13 @@ import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
+import { useState, useEffect, useRef } from "react";
+import {
+  PipelineFunnelWidget,
+  AgentLeaderboardWidget,
+  UpcomingAppointmentsWidget,
+  RecentActivityWidget
+} from "@/components/dashboard-widgets";
 import {
   Users,
   MessageCircle,
@@ -37,16 +44,6 @@ import {
   Save,
   X,
 } from "lucide-react";
-import { useState, useEffect } from "react";
-import { Responsive as ResponsiveGridLayoutBase, Layout, WidthProvider } from "react-grid-layout";
-import "react-grid-layout/css/styles.css";
-import "react-resizable/css/styles.css";
-import {
-  PipelineFunnelWidget,
-  AgentLeaderboardWidget,
-  UpcomingAppointmentsWidget,
-  RecentActivityWidget
-} from "@/components/dashboard-widgets";
 
 interface WarmupNumber {
   id: number;
@@ -223,7 +220,6 @@ import * as RGLNamespace from "react-grid-layout";
 import { type Layout } from "react-grid-layout"; // Keep type import separate works best usually or strictly from namespace if exported
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
-import { useState, useEffect, useRef } from "react";
 
 // In the CJS build with __esModule=true, import sets "default" to the default export.
 // We need the "Responsive" named export, which is available on the namespace object.
@@ -257,10 +253,6 @@ const WidthProvider = (ComposedComponent: any) => {
 };
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
-
-import { Pencil, Save, X } from "lucide-react"; // Add these imports
-
-// ... existing imports ...
 
 // Updated Layout with individual stats
 const DEFAULT_LAYOUT: Layout = [

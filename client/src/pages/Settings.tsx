@@ -392,14 +392,18 @@ function SettingsContent() {
 
         <TabsContent value="team" className="space-y-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Usuarios y roles</CardTitle>
-                <CardDescription>
-                  Asigná Admin, Supervisor, Agente o Solo lectura
-                </CardDescription>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <CardTitle>Usuarios y roles</CardTitle>
+                  <CardDescription>
+                    Asigná Admin, Supervisor, Agente o Solo lectura
+                  </CardDescription>
+                </div>
+                <div className="flex-shrink-0">
+                  <AddUserDialog onSuccess={() => teamQuery.refetch()} />
+                </div>
               </div>
-              <AddUserDialog onSuccess={() => teamQuery.refetch()} />
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
