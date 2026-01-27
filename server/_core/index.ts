@@ -14,6 +14,8 @@ import { users } from "../../drizzle/schema";
 import { initReminderScheduler } from "../reminderScheduler";
 import { startCampaignWorker } from "../services/campaign-worker";
 
+import { runMigrations } from "../scripts/migrate";
+
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
     const server = net.createServer();
@@ -273,16 +275,19 @@ import bcrypt from "bcryptjs";
 import { nanoid } from "nanoid";
 
 const run = async () => {
-  console.log("[Startup] Server Version: Fix-AutoMigrate-ChatPosition-v1");
+  console.log("[Startup] Server Version: Fix-AutoMigrate-StaticImport-v2");
+
   if (process.env.RUN_MIGRATIONS === "1") {
     try {
-      console.log("[Startup] Running auto-migrations...");
-      const { runMigrations } = await import("../scripts/migrate");
+      console.log("[Startup] Starting database migration...");
       await runMigrations();
+      console.log("[Startup] Database migration completed.");
     } catch (e) {
-      console.error("[Startup] Auto-migration failed:", e);
-      // Decide if we should explode or continue. Usually continue is safer for now.
+      console.error("[Startup] CRITICAL: Auto-migration failed:", e);
+      // We continue to start server even if migration fails, to allow debugging
     }
+  } else {
+    console.log("[Startup] Skipping migrations (RUN_MIGRATIONS != 1)");
   }
 
   await startServer();

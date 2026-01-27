@@ -8,7 +8,7 @@ import App from "./App";
 import { getLoginUrl } from "./const";
 import "./index.css";
 
-console.log("Client Version: Fix-AutoMigrate-ChatPosition-v1");
+console.log("Client Version: Fix-AutoMigrate-StaticImport-v2");
 
 function loadAnalytics() {
   try {
