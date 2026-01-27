@@ -352,7 +352,7 @@ function DashboardContent() {
         layouts={{ lg: layout }}
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
         cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-        rowHeight={60}
+        rowHeight={100}
         onLayoutChange={(l: Layout) => setLayout(l)}
         draggableHandle=".drag-handle"
       >
@@ -497,7 +497,7 @@ function DashboardContent() {
                 <div
                   key={action.key}
                   onClick={() => setLocation(action.path)}
-                  className={`action-card group ${action.hoverColor} cursor-pointer`}
+                  className={`group relative flex flex-col justify-between p-4 rounded-xl border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all cursor-pointer ${action.hoverColor} h-[140px]`}
                 >
                   <div className="flex items-start justify-between">
                     <div className={`icon-container ${action.iconColor}`}>

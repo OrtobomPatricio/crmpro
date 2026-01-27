@@ -57,6 +57,7 @@ import { usePermissions } from "@/_core/hooks/usePermissions";
 import { TeamChatWidget } from "@/components/team-chat";
 import { CommandMenu } from "./CommandMenu";
 import { MobileBottomNav } from "./MobileBottomNav";
+import { HelpCenter } from "@/components/help-center";
 
 type MenuItem = {
   icon: any;
@@ -158,6 +159,7 @@ export default function DashboardLayout({
       </DashboardLayoutContent>
       {showTour && <WelcomeTour onComplete={() => setShowTour(false)} />}
       <TeamChatWidget />
+      <HelpCenter />
       <MobileBottomNav />
     </SidebarProvider>
   );
