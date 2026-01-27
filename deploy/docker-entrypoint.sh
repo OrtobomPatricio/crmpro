@@ -1,10 +1,8 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 set -e
 
-if [ "${RUN_MIGRATIONS:-1}" = "1" ]; then
-  echo "[boot] running DB migrations"
-  pnpm db:migrate
-fi
+echo "[boot] running DB migrations"
+node dist/migrate.js
 
 echo "[boot] starting server"
-exec "$@"
+exec node dist/index.js
