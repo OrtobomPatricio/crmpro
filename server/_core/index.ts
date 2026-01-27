@@ -269,4 +269,39 @@ async function startServer() {
   });
 }
 
+import bcrypt from "bcryptjs";
+import { nanoid } from "nanoid";
+
 startServer().catch(console.error);
+
+async function checkAndSeedAdmin() {
+  const db = await getDb();
+  if (!db) return;
+
+  const userCount = await db.select({ count: sql<number>`count(*)` }).from(users);
+  const count = Number(userCount[0]?.count ?? 0);
+
+  if (count === 0) {
+    console.log("[SEED] No users found. Creating default admin...");
+    const hashedPassword = await bcrypt.hash("admin123", 10);
+    const openId = `local_${nanoid(16)}`;
+
+    await db.insert(users).values({
+      openId,
+      name: "Admin User",
+      email: "admin@crm.com",
+      password: hashedPassword,
+      role: "owner",
+      loginMethod: "credentials",
+      isActive: true,
+      hasSeenTour: false,
+    });
+
+    console.log("[SEED] Default admin created:");
+    console.log("Email: admin@crm.com");
+    console.log("Password: admin123");
+  }
+}
+
+// Run seed check before start
+checkAndSeedAdmin().catch(err => console.error("[SEED] Error:", err));
