@@ -29,7 +29,7 @@ export function TeamChatWidget() {
                 <Button
                     variant="default"
                     size="icon"
-                    className="fixed bottom-6 left-6 h-14 w-14 rounded-full shadow-2xl z-[100] bg-indigo-600 hover:bg-indigo-700 transition-all hover:scale-105"
+                    className={`fixed bottom-6 left-6 h-14 w-14 rounded-full shadow-2xl z-[100] bg-indigo-600 hover:bg-indigo-700 transition-all hover:scale-105 ${isOpen ? 'hidden' : ''}`}
                 >
                     <MessageSquare className="h-7 w-7 text-white" />
                     {totalUnread > 0 && (
