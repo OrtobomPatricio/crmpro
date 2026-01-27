@@ -201,15 +201,16 @@ const quickActions = [
 ];
 
 // Imports for Grid Layout
-// Attempt 4: Force CJS via Vite Alias + Default Import
-import RGL, { type Layout } from "react-grid-layout";
+// Attempt 5: Namespace import to access named exports from CJS build
+import * as RGLNamespace from "react-grid-layout";
+import { type Layout } from "react-grid-layout"; // Keep type import separate works best usually or strictly from namespace if exported
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { useState, useEffect, useRef } from "react";
 
-// In CJS build, RGL is the default export.
-// We use the Responsive component (which requires a 'width' prop).
-const Responsive = (RGL as any).Responsive;
+// In the CJS build with __esModule=true, import sets "default" to the default export.
+// We need the "Responsive" named export, which is available on the namespace object.
+const Responsive = (RGLNamespace as any).Responsive || (RGLNamespace as any).default?.Responsive || RGLNamespace.ResponsiveGridLayout;
 
 // Custom WidthProvider since the library export is missing in this build
 const WidthProvider = (ComposedComponent: any) => {
