@@ -544,6 +544,10 @@ function SchedulingConfigForm({ initialData, onSave }: { initialData: any, onSav
     onSuccess: () => {
       toast.success("Configuración guardada");
       onSave();
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error("Error al guardar: " + error.message);
     }
   });
 
