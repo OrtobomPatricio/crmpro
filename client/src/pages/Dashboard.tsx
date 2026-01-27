@@ -201,18 +201,14 @@ const quickActions = [
 ];
 
 // Imports for Grid Layout
-import * as ReactGridLayout from "react-grid-layout";
+// Attempt 3: Standard named imports (Rollup should handle this correctly)
+import { Responsive, WidthProvider } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { useState, useEffect } from "react";
 
-// Robust import for Vite/Rollup production build
-const RGL = ReactGridLayout.default || ReactGridLayout;
-const Responsive = RGL.Responsive || (RGL as any).Responsive;
-const WidthProvider = RGL.WidthProvider || (RGL as any).WidthProvider;
-
-// Debugging for production (check console if error persists)
-console.log('[Dashboard] RGL Loaded:', { RGL, Responsive, WidthProvider });
+// Debugging
+console.log('[Dashboard] RGL Named Imports:', { Responsive, WidthProvider, TypeOfWP: typeof WidthProvider });
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
