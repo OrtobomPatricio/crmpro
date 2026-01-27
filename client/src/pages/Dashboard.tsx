@@ -264,25 +264,25 @@ import { Pencil, Save, X } from "lucide-react"; // Add these imports
 
 // Updated Layout with individual stats
 const DEFAULT_LAYOUT: Layout = [
-  // Stats Row (split into 4)
-  { i: "stat-leads", x: 0, y: 0, w: 3, h: 2, minH: 2 },
-  { i: "stat-whatsapp", x: 3, y: 0, w: 3, h: 2, minH: 2 },
-  { i: "stat-messages", x: 6, y: 0, w: 3, h: 2, minH: 2 },
-  { i: "stat-conversion", x: 9, y: 0, w: 3, h: 2, minH: 2 },
+  // Stats Row (4 equal cards)
+  { i: "stat-leads", x: 0, y: 0, w: 3, h: 2, minH: 2, maxH: 3 },
+  { i: "stat-whatsapp", x: 3, y: 0, w: 3, h: 2, minH: 2, maxH: 3 },
+  { i: "stat-messages", x: 6, y: 0, w: 3, h: 2, minH: 2, maxH: 3 },
+  { i: "stat-conversion", x: 9, y: 0, w: 3, h: 2, minH: 2, maxH: 3 },
 
-  // Warmup & Status
-  { i: "warmup", x: 0, y: 2, w: 6, h: 4, minH: 3 },
-  { i: "status", x: 6, y: 2, w: 6, h: 4, minH: 3 },
+  // NEW ANALYTICS WIDGETS (2x2 grid - larger and balanced)
+  { i: "pipeline-funnel", x: 0, y: 2, w: 6, h: 6, minH: 5 },
+  { i: "agent-leaderboard", x: 6, y: 2, w: 6, h: 6, minH: 5 },
+  { i: "upcoming-appointments", x: 0, y: 8, w: 6, h: 6, minH: 5 },
+  { i: "recent-activity", x: 6, y: 8, w: 6, h: 6, minH: 5 },
 
-  // NEW WIDGETS ROW
-  { i: "pipeline-funnel", x: 0, y: 6, w: 6, h: 5, minH: 4 },
-  { i: "agent-leaderboard", x: 6, y: 6, w: 6, h: 5, minH: 4 },
-  { i: "upcoming-appointments", x: 0, y: 11, w: 6, h: 5, minH: 4 },
-  { i: "recent-activity", x: 6, y: 11, w: 6, h: 5, minH: 4 },
+  // Warmup & Status (moved below widgets)
+  { i: "warmup", x: 0, y: 14, w: 6, h: 5, minH: 4 },
+  { i: "status", x: 6, y: 14, w: 6, h: 5, minH: 4 },
 
-  // Quick Actions & Recent
-  { i: "quick-actions", x: 0, y: 16, w: 12, h: 4, minH: 3 },
-  { i: "recent-leads", x: 0, y: 20, w: 12, h: 4, minH: 3 },
+  // Quick Actions & Recent Leads (full width at bottom)
+  { i: "quick-actions", x: 0, y: 19, w: 12, h: 5, minH: 4 },
+  { i: "recent-leads", x: 0, y: 24, w: 12, h: 5, minH: 4 },
 ];
 
 export default function Dashboard() {
