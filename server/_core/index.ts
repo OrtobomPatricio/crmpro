@@ -238,8 +238,10 @@ async function startServer() {
 
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
-    // Dynamic import to avoid loading 'vite' package in production (which causes ERR_MODULE_NOT_FOUND)
-    const { setupVite } = await import("./vite");
+    // Dynamic import with variable to PREVENT esbuild from bundling vite.ts and its dependencies
+    // (like @tailwindcss/vite) into the production build.
+    const viteModulePath = "./vite";
+    const { setupVite } = await import(viteModulePath);
     await setupVite(app, server);
   } else {
     serveStatic(app);
