@@ -2941,6 +2941,48 @@ export const appRouter = router({
         .sort((a, b) => (b.unreadCount - a.unreadCount)); // Sort by unread first
     }),
   }),
+
+  // Settings Management
+  settings: router({
+    get: protectedProcedure
+      .query(async () => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+
+        const settings = await db.select().from(appSettings).limit(1);
+        return settings[0] || null;
+      }),
+
+    updateDashboardConfig: protectedProcedure
+      .input(z.record(z.boolean()))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+
+        // Get existing settings
+        const existing = await db.select().from(appSettings).limit(1);
+
+        if (existing.length > 0) {
+          // Update existing
+          await db.update(appSettings)
+            .set({
+              dashboardConfig: {
+                ...existing[0].dashboardConfig as any,
+                ...input
+              },
+              updatedAt: new Date()
+            })
+            .where(eq(appSettings.id, existing[0].id));
+        } else {
+          // Create first settings entry
+          await db.insert(appSettings).values({
+            dashboardConfig: input
+          });
+        }
+
+        return { success: true };
+      }),
+  }),
 });
 
 
