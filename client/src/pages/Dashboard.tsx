@@ -201,14 +201,18 @@ const quickActions = [
 ];
 
 // Imports for Grid Layout
-// Attempt 3: Standard named imports (Rollup should handle this correctly)
-import { Responsive, WidthProvider } from "react-grid-layout";
+// Attempt 4: Force CJS via Vite Alias + Default Import
+import RGL from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { useState, useEffect } from "react";
 
+// In CJS build, RGL is the default export, and properties are attached to it.
+const Responsive = RGL.Responsive;
+const WidthProvider = RGL.WidthProvider;
+
 // Debugging
-console.log('[Dashboard] RGL Named Imports:', { Responsive, WidthProvider, TypeOfWP: typeof WidthProvider });
+console.log('[Dashboard] RGL CJS Import:', { RGL, Responsive, WidthProvider });
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 

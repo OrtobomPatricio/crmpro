@@ -123,6 +123,7 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "client", "src"),
       "@shared": path.resolve(import.meta.dirname, "shared"),
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
+      "react-grid-layout": path.resolve(import.meta.dirname, "node_modules/react-grid-layout/dist/index.js"),
     },
   },
   envDir: path.resolve(import.meta.dirname),
