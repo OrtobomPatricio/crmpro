@@ -131,6 +131,8 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    minify: false, // Disable minification to debug "is not a function" errors
+    sourcemap: true,
   },
   server: {
     host: true,

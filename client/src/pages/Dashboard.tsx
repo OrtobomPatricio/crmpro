@@ -201,12 +201,18 @@ const quickActions = [
 ];
 
 // Imports for Grid Layout
-import RGL, { Layout } from "react-grid-layout";
-const Responsive = (RGL as any).Responsive;
-const WidthProvider = (RGL as any).WidthProvider;
+import * as ReactGridLayout from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { useState, useEffect } from "react";
+
+// Robust import for Vite/Rollup production build
+const RGL = ReactGridLayout.default || ReactGridLayout;
+const Responsive = RGL.Responsive || (RGL as any).Responsive;
+const WidthProvider = RGL.WidthProvider || (RGL as any).WidthProvider;
+
+// Debugging for production (check console if error persists)
+console.log('[Dashboard] RGL Loaded:', { RGL, Responsive, WidthProvider });
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
