@@ -3,7 +3,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { HelpCircle, Search, PlayCircle, FileText, ExternalLink } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 // Mock data for help articles and videos
@@ -88,7 +87,7 @@ export function HelpCenter({ open, onOpenChange }: { open?: boolean; onOpenChang
           </div>
         </SheetHeader>
 
-        <ScrollArea className="flex-1 pr-6 -mr-6 pt-6">
+        <div className="flex-1 overflow-y-auto pr-6 -mr-6 pt-6">
           <div className="space-y-6 pb-6">
             {/* Quick Links / Featured */}
             {!searchQuery && (
@@ -157,7 +156,7 @@ export function HelpCenter({ open, onOpenChange }: { open?: boolean; onOpenChang
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
         <div className="pt-6 mt-2 border-t text-center space-y-2">
           <Button variant="outline" className="w-full gap-2">
             Contactar Soporte Técnico
