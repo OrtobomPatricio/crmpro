@@ -205,14 +205,38 @@ const quickActions = [
 import RGL, { type Layout } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
-// In CJS build, RGL is the default export, and properties are attached to it.
+// In CJS build, RGL is the default export.
+// We use the Responsive component (which requires a 'width' prop).
 const Responsive = (RGL as any).Responsive;
-const WidthProvider = (RGL as any).WidthProvider;
 
-// Debugging
-console.log('[Dashboard] RGL CJS Import:', { RGL, Responsive, WidthProvider });
+// Custom WidthProvider since the library export is missing in this build
+const WidthProvider = (ComposedComponent: any) => {
+  return (props: any) => {
+    const [width, setWidth] = useState(1200);
+    const elementRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+      const el = elementRef.current;
+      if (!el) return;
+
+      const resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          setWidth(entry.contentRect.width);
+        }
+      });
+      resizeObserver.observe(el);
+      return () => resizeObserver.disconnect();
+    }, []);
+
+    return (
+      <div ref={elementRef} className={props.className} style={props.style}>
+        <ComposedComponent {...props} width={width} />
+      </div>
+    );
+  };
+};
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
