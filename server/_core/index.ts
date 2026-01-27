@@ -10,7 +10,7 @@ import { createContext } from "./context";
 import { serveStatic } from "./serve-static";
 import { getDb } from "../db";
 import { sql, eq } from "drizzle-orm";
-import { users } from "../../drizzle/schema";
+import { users, appSettings } from "../../drizzle/schema";
 import { initReminderScheduler } from "../reminderScheduler";
 import { startCampaignWorker } from "../services/campaign-worker";
 
@@ -292,9 +292,63 @@ const run = async () => {
 
   await startServer();
   await checkAndSeedAdmin();
+  await ensureAppSettings();
 };
 
 run().catch(console.error);
+
+async function ensureAppSettings() {
+  const db = await getDb();
+  if (!db) return;
+
+  try {
+    const rows = await db.select().from(appSettings).limit(1);
+    if (rows.length === 0) {
+      console.log("[SEED] AppSettings empty. Creating defaults...");
+      await db.insert(appSettings).values({
+        companyName: "Imagine Lab CRM",
+        timezone: "America/Asuncion",
+        language: "es",
+        currency: "PYG",
+        permissionsMatrix: {
+          owner: ["*"],
+          admin: [
+            "dashboard.*",
+            "leads.*",
+            "kanban.*",
+            "campaigns.*",
+            "chat.*",
+            "scheduling.*",
+            "monitoring.*",
+            "analytics.*",
+            "reports.*",
+            "integrations.*",
+            "settings.*",
+            "users.*",
+          ],
+          supervisor: [
+            "dashboard.view",
+            "leads.view",
+            "kanban.view",
+            "chat.*",
+            "monitoring.*",
+            "analytics.view",
+            "reports.view",
+          ],
+          agent: ["dashboard.view", "leads.*", "kanban.view", "chat.*", "scheduling.*"],
+          viewer: ["dashboard.view", "leads.view", "kanban.view", "analytics.view", "reports.view"],
+        },
+        scheduling: { slotMinutes: 15, maxPerSlot: 6, allowCustomTime: true },
+        // Ensure other JSON fields are not null if schema requires them or code breaks
+        salesConfig: { defaultCommissionRate: 0, currencySymbol: "₲", requireValueOnWon: false },
+        chatDistributionConfig: { mode: "manual", excludeAgentIds: [] },
+      });
+      console.log("[SEED] AppSettings seeded successfully.");
+    }
+  } catch (e) {
+    console.error("[SEED] Failed to seed AppSettings:", e);
+  }
+}
 
 async function checkAndSeedAdmin() {
   const db = await getDb();

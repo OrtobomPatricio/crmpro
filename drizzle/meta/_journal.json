@@ -64,6 +64,13 @@
       "when": 1769166057194,
       "tag": "0008_pro_upgrade_pack",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1769533760106,
+      "tag": "0009_quick_corsair",
+      "breakpoints": true
     }
   ]
 }
