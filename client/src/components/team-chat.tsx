@@ -9,7 +9,8 @@ import { trpc } from "@/lib/trpc";
 import { format } from "date-fns";
 import { useAuth } from "@/_core/hooks/useAuth";
 
-export function TeamChatWidget() {
+export function TeamChatWidget({ helpCenterOpen }: { helpCenterOpen?: boolean }) {
+
     const [isOpen, setIsOpen] = useState(false);
     const { user } = useAuth();
 
@@ -29,7 +30,7 @@ export function TeamChatWidget() {
                 <Button
                     variant="default"
                     size="icon"
-                    className={`fixed bottom-6 right-24 h-14 w-14 rounded-full shadow-2xl z-[100] bg-indigo-600 hover:bg-indigo-700 transition-all hover:scale-105 ${isOpen ? 'hidden' : ''}`}
+                    className={`fixed bottom-6 h-14 w-14 rounded-full shadow-2xl z-[100] bg-indigo-600 hover:bg-indigo-700 transition-all duration-300 hover:scale-105 ${isOpen ? 'hidden' : ''} ${helpCenterOpen ? 'right-[440px] sm:right-[580px]' : 'right-24'}`}
                 >
                     <MessageSquare className="h-7 w-7 text-white" />
                     {totalUnread > 0 && (

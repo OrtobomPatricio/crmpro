@@ -101,6 +101,7 @@ export default function DashboardLayout({
   });
   const { loading, user } = useAuth();
   const [showTour, setShowTour] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
@@ -158,8 +159,8 @@ export default function DashboardLayout({
         {children}
       </DashboardLayoutContent>
       {showTour && <WelcomeTour onComplete={() => setShowTour(false)} />}
-      <TeamChatWidget />
-      <HelpCenter />
+      <TeamChatWidget helpCenterOpen={isHelpOpen} />
+      <HelpCenter open={isHelpOpen} onOpenChange={setIsHelpOpen} />
       <MobileBottomNav />
     </SidebarProvider>
   );

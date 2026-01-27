@@ -45,9 +45,13 @@ const HELP_TOPICS = [
   }
 ];
 
-export function HelpCenter() {
+export function HelpCenter({ open, onOpenChange }: { open?: boolean; onOpenChange?: (open: boolean) => void }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+
+  const isControlled = open !== undefined;
+  const isOpen = isControlled ? open : internalOpen;
+  const setIsOpen = isControlled ? onOpenChange! : setInternalOpen;
 
   const filteredTopics = HELP_TOPICS.map(topic => ({
     ...topic,
@@ -86,20 +90,20 @@ export function HelpCenter() {
 
         <ScrollArea className="flex-1 pr-6 -mr-6 pt-6">
           <div className="space-y-6 pb-6">
-             {/* Quick Links / Featured */}
+            {/* Quick Links / Featured */}
             {!searchQuery && (
-               <div className="grid grid-cols-2 gap-4 mb-8">
-                 <div className="p-4 rounded-xl border bg-gradient-to-br from-primary/5 to-primary/10 hover:from-primary/10 hover:to-primary/20 cursor-pointer transition-all border-primary/10 hover:border-primary/30 group">
-                    <PlayCircle className="h-8 w-8 text-primary mb-3 group-hover:scale-110 transition-transform" />
-                    <h4 className="font-bold text-base mb-1">Video Tutoriales</h4>
-                    <p className="text-xs text-muted-foreground">Aprende visualmente</p>
-                 </div>
-                 <div className="p-4 rounded-xl border bg-gradient-to-br from-blue-500/5 to-blue-500/10 hover:from-blue-500/10 hover:to-blue-500/20 cursor-pointer transition-all border-blue-500/10 hover:border-blue-500/30 group">
-                    <FileText className="h-8 w-8 text-blue-500 mb-3 group-hover:scale-110 transition-transform" />
-                    <h4 className="font-bold text-base mb-1">Documentación</h4>
-                    <p className="text-xs text-muted-foreground">Guías detalladas</p>
-                 </div>
-               </div>
+              <div className="grid grid-cols-2 gap-4 mb-8">
+                <div className="p-4 rounded-xl border bg-gradient-to-br from-primary/5 to-primary/10 hover:from-primary/10 hover:to-primary/20 cursor-pointer transition-all border-primary/10 hover:border-primary/30 group">
+                  <PlayCircle className="h-8 w-8 text-primary mb-3 group-hover:scale-110 transition-transform" />
+                  <h4 className="font-bold text-base mb-1">Video Tutoriales</h4>
+                  <p className="text-xs text-muted-foreground">Aprende visualmente</p>
+                </div>
+                <div className="p-4 rounded-xl border bg-gradient-to-br from-blue-500/5 to-blue-500/10 hover:from-blue-500/10 hover:to-blue-500/20 cursor-pointer transition-all border-blue-500/10 hover:border-blue-500/30 group">
+                  <FileText className="h-8 w-8 text-blue-500 mb-3 group-hover:scale-110 transition-transform" />
+                  <h4 className="font-bold text-base mb-1">Documentación</h4>
+                  <p className="text-xs text-muted-foreground">Guías detalladas</p>
+                </div>
+              </div>
             )}
 
             <Accordion type="multiple" defaultValue={HELP_TOPICS.map(t => t.id)} className="w-full space-y-4">
@@ -107,10 +111,10 @@ export function HelpCenter() {
                 <AccordionItem key={topic.id} value={topic.id} className="border rounded-lg px-2 overflow-hidden bg-card/50">
                   <AccordionTrigger className="hover:no-underline py-3 px-2 hover:bg-muted/50 rounded-md transition-colors">
                     <span className="font-semibold text-base flex items-center gap-2">
-                        {topic.title}
-                        <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                            {topic.items.length}
-                        </span>
+                      {topic.title}
+                      <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                        {topic.items.length}
+                      </span>
                     </span>
                   </AccordionTrigger>
                   <AccordionContent className="pt-2 pb-3 px-2">
@@ -144,22 +148,22 @@ export function HelpCenter() {
             </Accordion>
 
             {filteredTopics.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                    <div className="bg-muted rounded-full p-4 mb-4">
-                        <Search className="h-8 w-8 opacity-50" />
-                    </div>
-                    <p className="font-medium">No encontramos resultados para "{searchQuery}"</p>
-                    <p className="text-sm">Intenta con otros términos</p>
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <div className="bg-muted rounded-full p-4 mb-4">
+                  <Search className="h-8 w-8 opacity-50" />
                 </div>
+                <p className="font-medium">No encontramos resultados para "{searchQuery}"</p>
+                <p className="text-sm">Intenta con otros términos</p>
+              </div>
             )}
           </div>
         </ScrollArea>
         <div className="pt-6 mt-2 border-t text-center space-y-2">
-           <Button variant="outline" className="w-full gap-2">
-                Contactar Soporte Técnico
-                <ExternalLink className="h-4 w-4" />
-           </Button>
-           <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium pt-2">Imagine Lab CRM v1.0</p>
+          <Button variant="outline" className="w-full gap-2">
+            Contactar Soporte Técnico
+            <ExternalLink className="h-4 w-4" />
+          </Button>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium pt-2">Imagine Lab CRM v1.0</p>
         </div>
       </SheetContent>
     </Sheet>
