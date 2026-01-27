@@ -1,4 +1,4 @@
-CREATE TABLE `achievements` (
+CREATE TABLE IF NOT EXISTS `achievements` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`userId` int NOT NULL,
 	`type` varchar(50) NOT NULL,
@@ -7,7 +7,7 @@ CREATE TABLE `achievements` (
 	CONSTRAINT `achievements_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
-CREATE TABLE `goals` (
+CREATE TABLE IF NOT EXISTS `goals` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`userId` int NOT NULL,
 	`type` enum('sales_amount','deals_closed','leads_created','messages_sent') NOT NULL,
@@ -21,7 +21,7 @@ CREATE TABLE `goals` (
 	CONSTRAINT `goals_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
-CREATE TABLE `internal_messages` (
+CREATE TABLE IF NOT EXISTS `internal_messages` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`senderId` int NOT NULL,
 	`recipientId` int,
