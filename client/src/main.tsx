@@ -8,6 +8,8 @@ import App from "./App";
 import { getLoginUrl } from "./const";
 import "./index.css";
 
+console.log("Client Version: Fix-AutoMigrate-ChatPosition-v1");
+
 function loadAnalytics() {
   try {
     const endpoint = import.meta.env.VITE_ANALYTICS_ENDPOINT as string | undefined;
