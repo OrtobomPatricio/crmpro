@@ -7,7 +7,7 @@ import { registerOAuthRoutes } from "./oauth";
 import { registerWhatsAppWebhookRoutes } from "../whatsapp/webhook";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { serveStatic, setupVite } from "./vite";
+import { serveStatic } from "./serve-static";
 import { getDb } from "../db";
 import { sql, eq } from "drizzle-orm";
 import { users } from "../../drizzle/schema";
@@ -238,6 +238,8 @@ async function startServer() {
 
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
+    // Dynamic import to avoid loading 'vite' package in production (which causes ERR_MODULE_NOT_FOUND)
+    const { setupVite } = await import("./vite");
     await setupVite(app, server);
   } else {
     serveStatic(app);
