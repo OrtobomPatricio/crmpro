@@ -273,6 +273,7 @@ import bcrypt from "bcryptjs";
 import { nanoid } from "nanoid";
 
 const run = async () => {
+  console.log("[Startup] Server Version: Fix-AutoMigrate-ChatPosition-v1");
   if (process.env.RUN_MIGRATIONS === "1") {
     try {
       console.log("[Startup] Running auto-migrations...");
