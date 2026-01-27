@@ -8,7 +8,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-async function runMigrations() {
+export async function runMigrations() {
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) {
         console.error("DATABASE_URL is not defined");
@@ -33,13 +33,17 @@ async function runMigrations() {
         console.log("[Migration] Success! Database is up to date.");
     } catch (error) {
         console.error("[Migration] Failed:", error);
-        process.exit(1);
+        // Do not exit process if imported, let caller handle it? 
+        // Or throw.
+        throw error;
     } finally {
         await connection.end();
     }
 }
 
-runMigrations().catch((err) => {
-    console.error("[Migration] Unhandled error:", err);
-    process.exit(1);
-});
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+    runMigrations().catch((err) => {
+        console.error("[Migration] Unhandled error:", err);
+        process.exit(1);
+    });
+}

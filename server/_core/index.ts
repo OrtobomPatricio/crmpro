@@ -272,7 +272,23 @@ async function startServer() {
 import bcrypt from "bcryptjs";
 import { nanoid } from "nanoid";
 
-startServer().catch(console.error);
+const run = async () => {
+  if (process.env.RUN_MIGRATIONS === "1") {
+    try {
+      console.log("[Startup] Running auto-migrations...");
+      const { runMigrations } = await import("../scripts/migrate");
+      await runMigrations();
+    } catch (e) {
+      console.error("[Startup] Auto-migration failed:", e);
+      // Decide if we should explode or continue. Usually continue is safer for now.
+    }
+  }
+
+  await startServer();
+  await checkAndSeedAdmin();
+};
+
+run().catch(console.error);
 
 async function checkAndSeedAdmin() {
   const db = await getDb();
@@ -303,5 +319,5 @@ async function checkAndSeedAdmin() {
   }
 }
 
-// Run seed check before start
-checkAndSeedAdmin().catch(err => console.error("[SEED] Error:", err));
+// CheckAndSeedAdmin is called in run()
+
