@@ -4,10 +4,10 @@ services:
     command: --default-authentication-plugin=mysql_native_password --sql_mode="" --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --max_allowed_packet=64M
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASS}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASS}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     expose:
       - "3306"
     volumes:
@@ -15,7 +15,7 @@ services:
     networks:
       - app_network
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_PASS}" ]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -45,7 +45,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: mysql://${DB_USER}:${DB_PASS}@mysql:3306/${DB_NAME}
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}
       JWT_SECRET: ${JWT_SECRET}
       OWNER_OPEN_ID: ${OWNER_OPEN_ID}
       ALLOW_DEV_LOGIN: "0"
