@@ -257,6 +257,14 @@ export const appRouter = router({
       return rows[0] ?? null;
     }),
 
+    getScheduling: permissionProcedure("scheduling.view") // or public/protected depending on need
+      .query(async () => {
+        const db = await getDb();
+        if (!db) return null;
+        const rows = await db.select().from(appSettings).limit(1);
+        return rows[0]?.scheduling || null;
+      }),
+
     updateGeneral: permissionProcedure("settings.manage")
       .input(
         z.object({
@@ -345,6 +353,27 @@ export const appRouter = router({
           await db.update(appSettings).set({ permissionsMatrix: input.permissionsMatrix as any });
         }
         return { success: true } as const;
+      }),
+
+    updateSecurityConfig: permissionProcedure("settings.manage")
+      .input(z.object({
+        securityConfig: z.object({
+          allowedIps: z.array(z.string()),
+          maxLoginAttempts: z.number().optional(),
+          sessionTimeoutMinutes: z.number().optional(),
+        })
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        const existing = await db.select().from(appSettings).limit(1);
+        if (existing.length === 0) {
+          await db.insert(appSettings).values({ securityConfig: input.securityConfig });
+        } else {
+          // Merge with existing config if needed, or overwrite? Overwrite is safer for security config to avoid stale IPs.
+          await db.update(appSettings).set({ securityConfig: input.securityConfig });
+        }
+        return { success: true };
       }),
 
     updateDashboardConfig: permissionProcedure("settings.manage")
@@ -472,12 +501,7 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    getScheduling: protectedProcedure.query(async () => {
-      const db = await getDb();
-      if (!db) return { slotMinutes: 15, maxPerSlot: 6, allowCustomTime: true };
-      const rows = await db.select().from(appSettings).limit(1);
-      return (rows[0] as any)?.scheduling ?? { slotMinutes: 15, maxPerSlot: 6, allowCustomTime: true };
-    }),
+
 
     myPermissions: protectedProcedure.query(async ({ ctx }) => {
       const db = await getDb();
@@ -3005,55 +3029,7 @@ export const appRouter = router({
     }),
   }),
 
-  // Settings Management
-  settings: router({
-    get: protectedProcedure
-      .query(async () => {
-        const db = await getDb();
-        if (!db) throw new Error("Database not available");
 
-        const settings = await db.select().from(appSettings).limit(1);
-        return settings[0] || null;
-      }),
-
-    getScheduling: protectedProcedure
-      .query(async () => {
-        const db = await getDb();
-        if (!db) return null;
-        const settings = await db.select().from(appSettings).limit(1);
-        return settings[0]?.scheduling || null;
-      }),
-
-    updateDashboardConfig: protectedProcedure
-      .input(z.record(z.boolean()))
-      .mutation(async ({ input }) => {
-        const db = await getDb();
-        if (!db) throw new Error("Database not available");
-
-        // Get existing settings
-        const existing = await db.select().from(appSettings).limit(1);
-
-        if (existing.length > 0) {
-          // Update existing
-          await db.update(appSettings)
-            .set({
-              dashboardConfig: {
-                ...existing[0].dashboardConfig as any,
-                ...input
-              },
-              updatedAt: new Date()
-            })
-            .where(eq(appSettings.id, existing[0].id));
-        } else {
-          // Create first settings entry
-          await db.insert(appSettings).values({
-            dashboardConfig: input
-          });
-        }
-
-        return { success: true };
-      }),
-  }),
 });
 
 

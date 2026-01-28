@@ -27,6 +27,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { useEffect, useMemo, useState } from "react";
+import { SecurityTabContent } from "@/components/SecurityTabContent";
+
 import { usePermissions } from "@/_core/hooks/usePermissions";
 import { AlertCircle, Plus, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -622,6 +624,24 @@ function SettingsContent() {
 
         <TabsContent value="security" className="space-y-4">
           <SecurityTabContent />
+        </TabsContent>
+
+        <TabsContent value="perms" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Permisos avanzados</CardTitle>
+              <CardDescription>
+                Define qué puede hacer cada rol en el sistema.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <PermissionsMatrixEditor
+                initialMatrix={initialMatrix}
+                onSave={(m) => updatePerms.mutate({ permissionsMatrix: m })}
+                isLoading={updatePerms.isPending}
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

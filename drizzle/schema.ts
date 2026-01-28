@@ -102,6 +102,13 @@ export const appSettings = mysqlTable("app_settings", {
     notifySupervisor: boolean;
   }>(),
 
+  // Security Configuration
+  securityConfig: json("securityConfig").$type<{
+    allowedIps: string[];
+    maxLoginAttempts?: number;
+    sessionTimeoutMinutes?: number;
+  }>(),
+
   // Chat Distribution Configuration
   chatDistributionConfig: json("chatDistributionConfig").$type<{
     mode: "manual" | "round_robin" | "all_agents";
