@@ -144,7 +144,11 @@ export const appRouter = router({
         hasSeenTour: u.hasSeenTour,
       };
     }),
-    logout: publicProcedure.mutation(({ ctx }) => {
+    logout: publicProcedure.mutation(async ({ ctx }) => {
+      const token = ctx.req.cookies[COOKIE_NAME];
+      if (token) {
+        await sdk.revokeSession(token);
+      }
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return {
@@ -420,7 +424,7 @@ export const appRouter = router({
           secure: input.secure,
           user: input.user,
           from: input.from,
-          ...(input.pass && input.pass.trim() ? { pass: input.pass.trim() } : {}), // In production we should encrypt this
+          ...(input.pass && input.pass.trim() ? { pass: encryptSecret(input.pass.trim()) } : {}),
           ...(input.pass === null ? { pass: null } : {}),
         };
 
@@ -464,9 +468,9 @@ export const appRouter = router({
           region: input.region,
           endpoint: input.endpoint,
           publicUrl: input.publicUrl,
-          ...(input.accessKey && input.accessKey.trim() ? { accessKey: input.accessKey.trim() } : {}),
+          ...(input.accessKey && input.accessKey.trim() ? { accessKey: encryptSecret(input.accessKey.trim()) } : {}),
           ...(input.accessKey === null ? { accessKey: null } : {}),
-          ...(input.secretKey && input.secretKey.trim() ? { secretKey: input.secretKey.trim() } : {}),
+          ...(input.secretKey && input.secretKey.trim() ? { secretKey: encryptSecret(input.secretKey.trim()) } : {}),
           ...(input.secretKey === null ? { secretKey: null } : {}),
         };
 
@@ -491,7 +495,7 @@ export const appRouter = router({
           ...prev,
           provider: input.provider,
           model: input.model,
-          ...(input.apiKey && input.apiKey.trim() ? { apiKey: input.apiKey.trim() } : {}),
+          ...(input.apiKey && input.apiKey.trim() ? { apiKey: encryptSecret(input.apiKey.trim()) } : {}),
           ...(input.apiKey === null ? { apiKey: null } : {}),
         };
 
@@ -512,7 +516,7 @@ export const appRouter = router({
 
         const next = {
           ...prev,
-          ...(input.apiKey && input.apiKey.trim() ? { apiKey: input.apiKey.trim() } : {}),
+          ...(input.apiKey && input.apiKey.trim() ? { apiKey: encryptSecret(input.apiKey.trim()) } : {}),
           ...(input.apiKey === null ? { apiKey: null } : {}),
         };
 

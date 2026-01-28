@@ -231,7 +231,7 @@ function SmtpSettings() {
         pass: "", // Never hydrate password
         from: config.from || ""
       });
-      setHasExistingPassword(!!config.hasPassword);
+      setHasExistingPassword(!!config.hasPass);
     }
   }, [query.data]);
 

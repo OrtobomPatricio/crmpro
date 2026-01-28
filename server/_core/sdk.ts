@@ -5,7 +5,11 @@ import { parse as parseCookieHeader } from "cookie";
 import type { Request } from "express";
 import { SignJWT, jwtVerify } from "jose";
 import type { User } from "../../drizzle/schema";
+import { sessions, users } from "../../drizzle/schema";
+import { eq } from "drizzle-orm";
 import * as db from "../db";
+import { getDb } from "../db";
+import crypto from "node:crypto";
 import { ENV } from "./env";
 import type {
   ExchangeTokenRequest,
@@ -187,14 +191,41 @@ class SDKServer {
     const expirationSeconds = Math.floor((issuedAt + expiresInMs) / 1000);
     const secretKey = this.getSessionSecret();
 
-    return new SignJWT({
+    const jti = crypto.randomUUID();
+
+    const token = await new SignJWT({
       openId: payload.openId,
       appId: payload.appId,
       name: payload.name,
     })
       .setProtectedHeader({ alg: "HS256", typ: "JWT" })
       .setExpirationTime(expirationSeconds)
+      .setJti(jti)
       .sign(secretKey);
+
+    // Guardar sesión en DB
+    try {
+      const database = await getDb();
+      if (database) {
+        // Necesitamos el ID numérico del usuario, no el openId
+        const u = await database.select().from(users).where(eq(users.openId, payload.openId)).limit(1);
+        if (u[0]) {
+          await database.insert(sessions).values({
+            userId: u[0].id,
+            sessionToken: jti, // Guardamos el JTI, no el token entero (seguridad)
+            ipAddress: null, // Podríamos capturarlo si pasáramos req
+            userAgent: null,
+            expiresAt: new Date(issuedAt + expiresInMs),
+            lastActivityAt: new Date(),
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to store session in DB", e);
+      // No fallamos el login si falla la DB, pero es riesgoso para revocación
+    }
+
+    return token;
   }
 
   async verifySession(
@@ -210,16 +241,36 @@ class SDKServer {
       const { payload } = await jwtVerify(cookieValue, secretKey, {
         algorithms: ["HS256"],
       });
-      const { openId, appId, name } = payload as Record<string, unknown>;
+      const { openId, appId, name, jti } = payload as Record<string, unknown>;
 
       if (!isNonEmptyString(openId) || !isNonEmptyString(appId)) {
         console.warn("[Auth] Session payload missing required fields");
         return null;
       }
 
+      // Stateful check: Verify JTI exists in DB
+      if (typeof jti === "string") {
+        try {
+          const database = await getDb();
+          if (database) {
+            const session = await database.select().from(sessions).where(eq(sessions.sessionToken, jti)).limit(1);
+            if (!session[0]) {
+              console.warn("[Auth] Session revoked or invalid (JTI not found)");
+              return null;
+            }
+            // Optional: Update lastActivityAt (async, don't await/block)
+            // database.update(sessions).set({ lastActivityAt: new Date() }).where(eq(sessions.id, session[0].id)).catch(() => {});
+          }
+        } catch (e) {
+          console.error("[Auth] DB session check failed", e);
+          // If DB is down, should we allow? Safe default is NO.
+          return null;
+        }
+      }
+
       return {
-        openId,
-        appId,
+        openId: openId as string,
+        appId: appId as string,
         // name is optional (some OAuth providers may not return it)
         name: typeof name === "string" ? name : "",
       };
@@ -306,6 +357,28 @@ class SDKServer {
     });
 
     return user;
+  }
+
+  async revokeSession(cookieValue: string | undefined): Promise<void> {
+    if (!cookieValue) return;
+    try {
+      const secretKey = this.getSessionSecret();
+      // Verify signature to get payload (even if expired, we might want to delete)
+      // BUT jwtVerify throws if expired. We can decode without verify if we just want JTI, but safety first.
+      // Let's try verify.
+      const { payload } = await jwtVerify(cookieValue, secretKey);
+      const jti = (payload as any).jti as string | undefined;
+
+      if (jti) {
+        const database = await getDb();
+        if (database) {
+          await database.delete(sessions).where(eq(sessions.sessionToken, jti));
+        }
+      }
+    } catch (e) {
+      // If token invalid/expired, session is effectively dead/irrelevant for DB (or already gone)
+      console.warn("Revoke failed or token invalid", e);
+    }
   }
 }
 
