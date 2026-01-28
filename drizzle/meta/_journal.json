@@ -78,6 +78,13 @@
       "when": 1769536344748,
       "tag": "0010_illegal_lucky_pierre",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1769639515902,
+      "tag": "0011_tough_liz_osborn",
+      "breakpoints": true
     }
   ]
 }
