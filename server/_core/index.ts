@@ -118,101 +118,8 @@ async function startServer() {
     }
   });
 
-  // --- DEBUG ROUTE (TEMPORARY) ---
-  app.get("/api/public-debug", async (req, res) => {
-    try {
-      const db = await getDb();
-      let dbStatus = "unknown";
-      if (!db) {
-        dbStatus = "failed: db_null";
-      } else {
-        try {
-          await db.execute(sql`SELECT 1`);
-          dbStatus = "connected";
-        } catch (e) {
-          dbStatus = `failed: ${String(e)}`;
-        }
-      }
-
-      const cookies = req.headers.cookie || "none";
-
-      // Attempt manual verify
-      let sessionStatus = "no_cookie";
-      let decoded = null;
-      if (req.headers.cookie) {
-        try {
-          const { sdk } = await import("./sdk");
-          const { getUserByOpenId } = await import("../db");
-          const parsed = (req.headers.cookie.split(';').find(c => c.trim().startsWith('app_session_id=')) || "").split('=')[1];
-          if (parsed) {
-            decoded = await sdk.verifySession(parsed);
-            if (decoded) {
-              const userInDb = await getUserByOpenId(decoded.openId);
-              sessionStatus = userInDb ? "valid_and_persisted" : "valid_token_but_user_missing_in_db";
-            } else {
-              sessionStatus = "invalid_signature";
-            }
-          } else {
-            sessionStatus = "cookie_found_but_token_missing";
-          }
-        } catch (e) {
-          sessionStatus = `error_verifying: ${String(e)}`;
-        }
-      }
-
-      // VITAL: Compare with the actual SDK function used by TRPC
-      let sdkAuthResult = "not_attempted";
-      try {
-        const { sdk } = await import("./sdk");
-        const user = await sdk.authenticateRequest(req);
-        sdkAuthResult = user ? "success_user_found" : "failed_null_user";
-      } catch (e: any) {
-        sdkAuthResult = `failed_error: ${e.message || String(e)}`;
-      }
-
-      let autoFix = "none";
-      if (sdkAuthResult.includes("User is disabled") && decoded && decoded.openId === "admin-user") {
-        try {
-          const db = await getDb();
-          if (db) {
-            await db.update(users).set({ isActive: true }).where(eq(users.openId, decoded.openId));
-            autoFix = "success_reactivated_admin";
-            // Re-check to confirm
-            sdkAuthResult = "success_user_recovered (refresh page)";
-          }
-        } catch (e) {
-          autoFix = `failed: ${String(e)}`;
-        }
-      }
-
-      res.json({
-        timestamp: new Date().toISOString(),
-        headers: {
-          host: req.headers.host,
-          x_forwarded_proto: req.headers["x-forwarded-proto"],
-          cookie_length: cookies.length,
-          cookie_raw: cookies.substring(0, 50) + "...", // truncate for safety log but visible enough
-        },
-        env: {
-          appId: process.env.VITE_APP_ID || "fallback",
-          // Show first 4 chars of secret to verify consistency without leaking
-          cookieSecretPrefix: (process.env.JWT_SECRET || "fallback").substring(0, 4) + "****",
-          oauthServer: process.env.OAUTH_SERVER_URL || "fallback",
-          ownerOpenId: process.env.OWNER_OPEN_ID || "fallback",
-        },
-        db: dbStatus,
-        session: {
-          status: sessionStatus,
-          decoded_openid: decoded?.openId || null,
-          sdk_direct_check: sdkAuthResult,
-          auto_fix: autoFix
-        }
-      });
-    } catch (e) {
-      res.status(500).json({ error: String(e) });
-    }
-  });
-  // -------------------------------
+  // --- DEBUG ROUTE REMOVED FOR SECURITY ---
+  // app.get("/api/public-debug", ...) 
 
   // Configure body parser with larger size limit for file uploads
   // Also keep raw body for WhatsApp webhook signature verification
@@ -391,18 +298,33 @@ async function checkAndSeedAdmin() {
   const db = await getDb();
   if (!db) return;
 
+  // In Production, NEVER auto-seed default credentials.
+  if (process.env.NODE_ENV === "production") {
+    console.log("[SEED] Production mode detected. Skipping auto-seed of admin.");
+    // Optional: Check if admin exists and warn if none
+    return;
+  }
+
   const userCount = await db.select({ count: sql<number>`count(*)` }).from(users);
   const count = Number(userCount[0]?.count ?? 0);
 
   if (count === 0) {
-    console.log("[SEED] No users found. Creating default admin...");
-    const hashedPassword = await bcrypt.hash("admin123", 10);
+    console.log("[SEED] No users found. Creating default admin (DEV ONLY)...");
+
+    // Fail-safe: if someone tries to use this in prod by mistake, ensure we don't use weak passwords unless forced? 
+    // Actually we already returned if NODE_ENV=production.
+
+    // Allow override via env
+    const email = process.env.BOOTSTRAP_ADMIN_EMAIL || "admin@crm.com";
+    const pass = process.env.BOOTSTRAP_ADMIN_PASSWORD || "admin123";
+
+    const hashedPassword = await bcrypt.hash(pass, 10);
     const openId = `local_${nanoid(16)}`;
 
     await db.insert(users).values({
       openId,
       name: "Admin User",
-      email: "admin@crm.com",
+      email: email,
       password: hashedPassword,
       role: "owner",
       loginMethod: "credentials",
@@ -411,8 +333,8 @@ async function checkAndSeedAdmin() {
     });
 
     console.log("[SEED] Default admin created:");
-    console.log("Email: admin@crm.com");
-    console.log("Password: admin123");
+    console.log(`Email: ${email}`);
+    console.log(`Password: ${process.env.BOOTSTRAP_ADMIN_PASSWORD ? "*****" : "admin123"}`);
   }
 }
 

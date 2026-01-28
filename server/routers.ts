@@ -126,7 +126,22 @@ export const appRouter = router({
   }),
 
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
+    me: publicProcedure.query(opts => {
+      const u = opts.ctx.user;
+      if (!u) return null;
+      // Return safe DTO
+      return {
+        id: u.id,
+        openId: u.openId,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        customRole: (u as any).customRole, // Cast if not in safe type
+        loginMethod: u.loginMethod,
+        isActive: u.isActive,
+        hasSeenTour: u.hasSeenTour,
+      };
+    }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -971,6 +986,20 @@ export const appRouter = router({
         const campaign = await db.select().from(campaigns).where(eq(campaigns.id, input.campaignId)).limit(1);
         if (!campaign[0]) throw new Error("Campaign not found");
 
+        // IDEMPOTENCY: Check campaign status first
+        if (campaign[0].status === "scheduled" || campaign[0].status === "running") {
+          return {
+            success: true,
+            recipientsCount: campaign[0].totalRecipients,
+            alreadyLaunched: true
+          };
+        }
+
+        // Ensure campaign is in draft state
+        if (campaign[0].status !== "draft") {
+          throw new Error(`Cannot launch campaign with status: ${campaign[0].status}`);
+        }
+
         const config = campaign[0].audienceConfig as any;
 
         // Fetch audience
@@ -982,13 +1011,26 @@ export const appRouter = router({
 
         const audience = await db.select().from(leads).where(whereClause);
 
-        // Create recipients
+        if (audience.length === 0) {
+          throw new Error("No recipients found for campaign");
+        }
+
+        // Create recipients with duplicate handling
+        let insertedCount = 0;
         for (const lead of audience) {
-          await db.insert(campaignRecipients).values({
-            campaignId: input.campaignId,
-            leadId: lead.id,
-            status: "pending",
-          });
+          try {
+            await db.insert(campaignRecipients).values({
+              campaignId: input.campaignId,
+              leadId: lead.id,
+              status: "pending",
+            });
+            insertedCount++;
+          } catch (err: any) {
+            // Ignore duplicate errors (unique constraint violation)
+            if (err.code !== 'ER_DUP_ENTRY' && !err.message?.includes('Duplicate')) {
+              throw err;
+            }
+          }
         }
 
         await db.update(campaigns).set({
@@ -999,7 +1041,7 @@ export const appRouter = router({
 
         // TODO: Trigger actual sending process (Queue/Worker)
 
-        return { success: true, recipientsCount: audience.length };
+        return { success: true, recipientsCount: audience.length, inserted: insertedCount };
       }),
 
     getById: permissionProcedure("campaigns.view")
@@ -1101,6 +1143,13 @@ export const appRouter = router({
       .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("Database not available");
+
+        // IDEMPOTENCY: Check if lead with this phone already exists
+        const existingLead = await db.select().from(leads).where(eq(leads.phone, input.phone)).limit(1);
+        if (existingLead[0]) {
+          // Return existing lead instead of creating duplicate
+          return { id: existingLead[0].id, success: true, existed: true };
+        }
 
         // Resolve pipeline stage (fallback to default pipeline's first stage)
         let stageId: number | null = (input.pipelineStageId as any) ?? null;
@@ -1289,52 +1338,23 @@ export const appRouter = router({
         // 2. Get Stages
         const stages = await db.select().from(pipelineStages).where(eq(pipelineStages.pipelineId, pipeline.id)).orderBy(asc(pipelineStages.order));
 
-        // 3. Get All Leads (optimization: filter by stages if possible)
-        // Since leads might have null stage, we fetch all? Or ideally fetch all and filter in memory for migration check.
-        // For performance, we should filtering by stageId IN (stages.ids) OR stageId IS NULL.
-        const allLeads = await db.select().from(leads);
+        // 3. OPTIMIZED: Filter leads by pipelineStageId instead of full scan
+        // Only fetch leads belonging to this pipeline's stages
+        const stageIds = stages.map(s => s.id);
+        const filteredLeads = stageIds.length > 0
+          ? await db.select().from(leads).where(inArray(leads.pipelineStageId, stageIds)).orderBy(asc(leads.kanbanOrder))
+          : [];
 
         const result: Record<string, typeof leads.$inferSelect[]> = {};
         stages.forEach(s => result[s.id] = []);
 
-        const updates: Promise<any>[] = [];
 
-        for (const lead of allLeads) {
-          // If lead belongs to one of the stages, add it
-          if (lead.pipelineStageId) {
-            if (result[lead.pipelineStageId]) {
-              result[lead.pipelineStageId].push(lead);
-            }
-            // if lead has stage ID but not in this pipeline, we skip it (it belongs to another pipeline)
-          } else {
-            // Migration logic: Map old status to new stage
-            // We need to map 'new' -> 1st stage, 'contacted' -> 2nd, etc. 
-            // We configured default map in pipelines.list
-            // "New", "Contacted", "Qualified", "Negotiation", "Won", "Lost"
-            // names match STATUSES keys roughly.
-            let targetStageName = "";
-            switch (lead.status) {
-              case 'new': targetStageName = "Nuevo"; break;
-              case 'contacted': targetStageName = "Contactado"; break;
-              case 'qualified': targetStageName = "Calificado"; break;
-              case 'negotiation': targetStageName = "Negociación"; break;
-              case 'won': targetStageName = "Ganado"; break;
-              case 'lost': targetStageName = "Perdido"; break;
-              default: targetStageName = "Nuevo";
-            }
-
-            const mapped = stages.find(s => s.name === targetStageName) || stages[0];
-            if (mapped) {
-              // Add to updating queue
-              updates.push(db.update(leads).set({ pipelineStageId: mapped.id, kanbanOrder: lead.id } as any).where(eq(leads.id, lead.id)));
-              // Add to result
-              result[mapped.id].push({ ...lead, pipelineStageId: mapped.id, kanbanOrder: (lead as any).kanbanOrder ?? lead.id } as any);
-            }
+        // 4. Group leads by stage
+        for (const lead of filteredLeads) {
+          if (lead.pipelineStageId && result[lead.pipelineStageId]) {
+            result[lead.pipelineStageId].push(lead);
           }
         }
-
-        // Execute migration updates in background (or await if critical)
-        if (updates.length > 0) await Promise.all(updates);
 
         // Sort each stage by kanbanOrder (fallback createdAt)
         for (const s of stages) {

@@ -14,7 +14,7 @@ export async function getDb() {
       // drizzle(mysql2) expects a mysql2 Pool/Connection, not a raw string
       const pool = mysql.createPool({
         uri: process.env.DATABASE_URL,
-        multipleStatements: true,
+        multipleStatements: false,
       });
 
       // Test the connection

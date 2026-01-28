@@ -13,14 +13,19 @@ export function registerOAuthRoutes(app: Express) {
   // Dev-only quick login (useful for local testing when OAuth is not configured).
   // Enabled only when ALLOW_DEV_LOGIN=1 and OWNER_OPEN_ID is set.
   app.get("/api/dev/login", async (req: Request, res: Response) => {
-    // Forced for simulation
-    const allow = true;
+    // Secure check for dev login
+    const isProduction = process.env.NODE_ENV === "production";
+    const allow = !isProduction && process.env.ALLOW_DEV_LOGIN === "1";
     const openId = process.env.OWNER_OPEN_ID || "dev-owner";
-    const bypass = true;
+    const bypass = !isProduction && process.env.VITE_DEV_BYPASS_AUTH === "1";
 
     if (!allow || !bypass || !openId) {
+      if (req.headers.accept?.includes("text/html")) {
+        res.status(403).send("Dev login disabled.");
+        return;
+      }
       res.status(403).json({
-        error: "Dev login disabled. Set ALLOW_DEV_LOGIN=1, VITE_DEV_BYPASS_AUTH=1 and OWNER_OPEN_ID in .env",
+        error: "Dev login disabled. Set ALLOW_DEV_LOGIN=1, VITE_DEV_BYPASS_AUTH=1 and OWNER_OPEN_ID in .env (NON-PROD ONLY)",
       });
       return;
     }

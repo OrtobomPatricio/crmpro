@@ -42,6 +42,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -94,7 +104,7 @@ const countries = AMERICAS_COUNTRIES.map((c) => ({ value: c.value, label: c.labe
 
 export default function Leads() {
   return (
-      <LeadsContent />
+    <LeadsContent />
   );
 }
 
@@ -117,6 +127,7 @@ function LeadsContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
   const [selectedLeads, setSelectedLeads] = useState<number[]>([]);
+  const [leadToDelete, setLeadToDelete] = useState<number | null>(null);
 
   const utils = trpc.useUtils();
   const { data: leads, isLoading } = trpc.leads.list.useQuery({
@@ -573,7 +584,7 @@ function LeadsContent() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-whatsapp hover:text-whatsapp hover:bg-whatsapp/10"
-                              onClick={() => setLocation('/chat')}
+                              onClick={() => setLocation(`/chat?leadId=${lead.id}`)}
                               title="Iniciar Chat en WhatsApp"
                             >
                               <MessageCircle className="h-4 w-4" />

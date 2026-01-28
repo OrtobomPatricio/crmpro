@@ -12,7 +12,8 @@
     "test": "vitest run",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node dist/migrate.js"
+    "db:migrate": "node dist/migrate.js",
+    "set-owner": "tsx server/scripts/set-owner.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
