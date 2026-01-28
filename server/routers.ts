@@ -64,7 +64,8 @@ export const appRouter = router({
           // Let's look at schema again... `whatsappNumberId` is int.
           // If we don't have `whatsappNumbers` entry, we might need to create one or just use a random int.
           // Let's use a simple heuristic: check max ID and increment? Or just use a random int for now.
-          const randomId = Math.floor(Math.random() * 1000000);
+          // Use timestamp (seconds) to minimize collisions and fit in 32-bit INT
+          const randomId = Math.floor(Date.now() / 1000);
 
           await db.insert(whatsappConnections).values({
             whatsappNumberId: randomId,
