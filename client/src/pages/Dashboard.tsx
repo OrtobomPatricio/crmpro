@@ -40,6 +40,7 @@ import {
     Settings,
     Database,
     Workflow,
+    Heart,
 } from "lucide-react";
 
 interface WidgetDefinition {
@@ -108,6 +109,14 @@ function DashboardContent() {
         'campaigns': true,
         'conversations': true,
         'scheduling': true,
+        // Added to match Settings
+        'attendants': true,
+        'health': true,
+        'whatsapp': true,
+        'commissions': true,
+        'goals': true,
+        'achievements': true,
+        'warmup': true,
     });
 
     // Load config from backend
@@ -223,6 +232,69 @@ function DashboardContent() {
             iconColor: "icon-container-cyan",
             hoverColor: "hover:border-cyan-500/50",
             path: "/backup",
+        },
+        {
+            key: "attendants",
+            icon: UserCheck,
+            label: "Atendentes",
+            description: "Gestión del equipo de soporte",
+            iconColor: "icon-container-blue",
+            hoverColor: "hover:border-blue-500/50",
+            path: "/attendants",
+        },
+        {
+            key: "health",
+            icon: Heart,
+            label: "Salud de Cuentas",
+            description: "Estado de salud de tus conexiones",
+            iconColor: "icon-container-red",
+            hoverColor: "hover:border-red-500/50",
+            path: "/health",
+        },
+        {
+            key: "whatsapp",
+            icon: Phone,
+            label: "Cuentas WhatsApp",
+            description: "Administrar números conectados",
+            iconColor: "icon-container-green",
+            hoverColor: "hover:border-green-500/50",
+            path: "/whatsapp",
+        },
+        {
+            key: "commissions",
+            icon: DollarSign,
+            label: "Comisiones",
+            description: "Cálculo y reporte de comisiones",
+            iconColor: "icon-container-yellow",
+            hoverColor: "hover:border-yellow-500/50",
+            path: "/commissions",
+        },
+        {
+            key: "goals",
+            icon: Target,
+            label: "Metas de Vendas",
+            description: "Objetivos y seguimiento",
+            iconColor: "icon-container-orange",
+            hoverColor: "hover:border-orange-500/50",
+            path: "/goals",
+        },
+        {
+            key: "achievements",
+            icon: Trophy,
+            label: "Logros",
+            description: "Premios y reconocimientos",
+            iconColor: "icon-container-purple",
+            hoverColor: "hover:border-purple-500/50",
+            path: "/achievements",
+        },
+        {
+            key: "warmup",
+            icon: Flame,
+            label: "Warm-up",
+            description: "Calentamiento de números",
+            iconColor: "icon-container-orange",
+            hoverColor: "hover:border-orange-500/50",
+            path: "/warmup",
         },
         {
             key: "settings",
