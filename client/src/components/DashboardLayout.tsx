@@ -329,15 +329,7 @@ function DashboardLayoutContent({
               })}
             </SidebarMenu>
 
-            {/* Canales conectados */}
-            {!isCollapsed && (
-              <div className="mt-4 px-2">
-                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground/70 uppercase tracking-wider mb-1">
-                  Conexiones
-                </div>
-                <ChannelsSection />
-              </div>
-            )}
+
           </SidebarContent>
 
           <SidebarFooter className="p-3 border-t border-sidebar-border bg-sidebar/50">
@@ -442,60 +434,4 @@ function DashboardLayoutContent({
   );
 }
 
-// Channels Section Component
-function ChannelsSection() {
-  const [isExpanded, setIsExpanded] = useState(true);
-  const [, setLocation] = useLocation();
-  const { data: channels = [] } = trpc.whatsappNumbers.list.useQuery();
 
-  const connectedChannels = channels.filter((ch: { isConnected: boolean }) => ch.isConnected);
-
-  return (
-    <div className="group/channels">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center justify-between w-full text-xs font-medium text-muted-foreground hover:text-foreground transition-colors mb-1 px-2 py-1 rounded hover:bg-sidebar-accent/50"
-      >
-        <span className="flex items-center gap-2">
-          <Phone className="w-3.5 h-3.5" />
-          Whatsapp ({connectedChannels.length})
-        </span>
-        <ChevronRight className={`w-3 h-3 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
-      </button>
-
-      {isExpanded && (
-        <div className="space-y-0.5 ml-1 border-l border-sidebar-border/50 pl-2 mt-1">
-          {connectedChannels.length > 0 ? (
-            connectedChannels.map((channel: { id: number; displayName: string | null; phoneNumber: string; status: string }) => (
-              <button
-                key={channel.id}
-                onClick={() => setLocation('/chat')}
-                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-xs hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors text-left group/item"
-              >
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.4)]" />
-                <span className="truncate opacity-90 group-hover/item:opacity-100">
-                  {channel.displayName || channel.phoneNumber}
-                </span>
-              </button>
-            ))
-          ) : (
-            <p className="text-[10px] text-muted-foreground px-2 py-1 italic">
-              Sin conexión
-            </p>
-          )}
-          <button
-            onClick={() => setLocation('/monitoring')}
-            className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors mt-1"
-          >
-            <span className="flex items-center gap-1.5">
-              <div className="flex items-center justify-center w-3 h-3 rounded-full border border-dashed border-current">
-                <span className="text-[8px]">+</span>
-              </div>
-              Conectar número
-            </span>
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
