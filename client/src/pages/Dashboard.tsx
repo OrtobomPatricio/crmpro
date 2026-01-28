@@ -289,7 +289,7 @@ function DashboardContent() {
             </div>
 
             {/* Quick Actions */}
-            {widgetConfig['quick-actions'] && (
+            {widgetConfig['quick-actions'] !== false && (
                 <div className="bg-background/50 rounded-lg p-6 border">
                     <h2 className="text-xl font-semibold mb-4">Acciones Rápidas</h2>
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
