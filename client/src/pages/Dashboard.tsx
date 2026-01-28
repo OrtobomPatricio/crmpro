@@ -11,7 +11,10 @@ import {
     PipelineFunnelWidget,
     AgentLeaderboardWidget,
     UpcomingAppointmentsWidget,
-    RecentActivityWidget
+    RecentActivityWidget,
+    WarmupWidget,
+    StatusWidget,
+    RecentLeadsWidget
 } from "@/components/dashboard-widgets";
 import {
     Users,
@@ -429,6 +432,9 @@ function DashboardContent() {
                 {widgetConfig['agent-leaderboard'] && <AgentLeaderboardWidget />}
                 {widgetConfig['upcoming-appointments'] && <UpcomingAppointmentsWidget />}
                 {widgetConfig['recent-activity'] && <RecentActivityWidget />}
+                {widgetConfig['warmup'] && <WarmupWidget />}
+                {widgetConfig['status'] && <StatusWidget />}
+                {widgetConfig['recent-leads'] && <RecentLeadsWidget />}
             </div>
 
             {/* Quick Actions */}

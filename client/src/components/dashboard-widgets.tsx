@@ -81,12 +81,12 @@ export function AgentLeaderboardWidget() {
                                 <div className="flex items-center gap-3">
                                     <div
                                         className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${agent.rank === 1
-                                                ? "bg-yellow-500 text-white"
-                                                : agent.rank === 2
-                                                    ? "bg-gray-400 text-white"
-                                                    : agent.rank === 3
-                                                        ? "bg-orange-600 text-white"
-                                                        : "bg-muted text-muted-foreground"
+                                            ? "bg-yellow-500 text-white"
+                                            : agent.rank === 2
+                                                ? "bg-gray-400 text-white"
+                                                : agent.rank === 3
+                                                    ? "bg-orange-600 text-white"
+                                                    : "bg-muted text-muted-foreground"
                                             }`}
                                     >
                                         {agent.rank}
@@ -214,6 +214,133 @@ export function RecentActivityWidget() {
                         ))}
                     </div>
                 )}
+            </CardContent>
+        </Card>
+    );
+}
+
+export function WarmupWidget() {
+    return (
+        <Card className="h-full flex flex-col">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5" />
+                    Sistema Warm-up
+                </CardTitle>
+                <CardDescription>Estado de calentamiento de números</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1">
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                            <span>En calentamiento</span>
+                            <span className="font-bold">3 números</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-orange-500 w-[60%]" />
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                            <span>En enfriamiento</span>
+                            <span className="font-bold">1 número</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 w-[20%]" />
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                            <span>Listos</span>
+                            <span className="font-bold">5 números</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-green-500 w-[100%]" />
+                        </div>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+export function StatusWidget() {
+    return (
+        <Card className="h-full flex flex-col">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5" />
+                    Estado de Números
+                </CardTitle>
+                <CardDescription>Monitoreo de conexiones WhatsApp</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1">
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between p-2 border rounded bg-card">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-green-500" />
+                            <span className="font-medium text-sm">+595 981 123 456</span>
+                        </div>
+                        <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full dark:bg-green-900/30 dark:text-green-400">
+                            Conectado
+                        </span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 border rounded bg-card">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-red-500" />
+                            <span className="font-medium text-sm">+595 971 654 321</span>
+                        </div>
+                        <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full dark:bg-red-900/30 dark:text-red-400">
+                            Desconectado
+                        </span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 border rounded bg-card">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                            <span className="font-medium text-sm">+595 991 111 222</span>
+                        </div>
+                        <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full dark:bg-yellow-900/30 dark:text-yellow-400">
+                            Sincronizando
+                        </span>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+export function RecentLeadsWidget() {
+    // Mock data for now, would ideally be a trpc query
+    const leads = [
+        { id: 1, name: "Maria Gonzalez", source: "Facebook Ads", status: "Nuevo" },
+        { id: 2, name: "Juan Perez", source: "Instagram", status: "Contactado" },
+        { id: 3, name: "Ana Silva", source: "WhatsApp", status: "En Proceso" },
+        { id: 4, name: "Carlos Ruiz", source: "Web", status: "Cerrado" },
+    ];
+
+    return (
+        <Card className="h-full flex flex-col">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Leads Recientes
+                </CardTitle>
+                <CardDescription>Últimos prospectos ingresados</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1">
+                <div className="space-y-3">
+                    {leads.map(lead => (
+                        <div key={lead.id} className="flex items-center justify-between border-b last:border-0 pb-2 last:pb-0">
+                            <div>
+                                <p className="font-medium text-sm">{lead.name}</p>
+                                <p className="text-xs text-muted-foreground">{lead.source}</p>
+                            </div>
+                            <span className="text-xs font-semibold px-2 py-1 rounded bg-secondary">
+                                {lead.status}
+                            </span>
+                        </div>
+                    ))}
+                </div>
             </CardContent>
         </Card>
     );
