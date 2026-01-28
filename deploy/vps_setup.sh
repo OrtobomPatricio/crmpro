@@ -25,6 +25,7 @@ echo "🔄 Descargando últimos cambios..."
 git pull origin main
 
 # 3. Setup Environment
+if [ ! -f ".env" ]; then
     echo "⚙️  Detectado entorno nuevo. Generando configuración segura AUTOMÁTICA..."
     
     # Geneacion de secretos
