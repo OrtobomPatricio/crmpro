@@ -337,12 +337,14 @@ export default function KanbanBoard() {
 
   if (isLoadingPipelines || (activePipelineId && isLoadingLeads)) {
     return (
-        <div className="flex items-center justify-center h-full">Cargando tablero...</div>
+      <div className="flex items-center justify-center h-full">Cargando tablero...</div>
     );
   }
 
   return (
+    <>
       <div className="h-[calc(100vh-100px)] flex flex-col p-4">
+        {/* ... existing content ... */}
         <div className="mb-6 flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Pipeline de Ventas</h1>
@@ -386,6 +388,7 @@ export default function KanbanBoard() {
       </div>
 
       <Dialog open={wonDialog.open} onOpenChange={(open) => !open && setWonDialog((p) => ({ ...p, open: false }))}>
+        {/* ... existing dialog content ... */}
         <DialogContent>
           <DialogHeader>
             <DialogTitle>¡Felicidades por la Venta!</DialogTitle>
@@ -419,5 +422,6 @@ export default function KanbanBoard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </>
   );
 }
