@@ -25,22 +25,50 @@ echo "🔄 Descargando últimos cambios..."
 git pull origin main
 
 # 3. Setup Environment
-if [ ! -f ".env" ]; then
-    echo "⚙️  Detectado entorno nuevo. Creando .env..."
-    if [ -f ".env.example" ]; then
-        cp .env.example .env
-        echo "✅ Archivo .env creado."
-    else
-        echo "⚠️  No se encontró .env.example. Creando archivo vacío."
-        touch .env
-    fi
+    echo "⚙️  Detectado entorno nuevo. Generando configuración segura AUTOMÁTICA..."
     
-    echo "==================================================="
-    echo "⚠️  ATENCIÓN: Debes configurar las variables de entorno."
-    echo "   Se abrirá el editor 'nano'. Guarda con Ctrl+O y Sal con Ctrl+X."
-    echo "==================================================="
-    read -p "Presiona ENTER para editar .env..."
-    nano .env
+    # Geneacion de secretos
+    JWT_SEC=$(openssl rand -hex 32)
+    ENC_KEY=$(openssl rand -hex 32)
+    DB_PASS=$(openssl rand -hex 16)
+    
+    # Detectar IP Publica
+    PUBLIC_IP=$(curl -s ifconfig.me || echo "localhost")
+    
+    cat <<EOF > .env
+# ==========================================
+# CONFIGURACIÓN PRODUCCIÓN (GENERADA AUTO)
+# ==========================================
+NODE_ENV=production
+# Conexion interna docker
+DATABASE_URL=mysql://root:\${DB_PASS}@mysql:3306/chin_crm
+
+# --- SEGURIDAD ---
+JWT_SECRET=\${JWT_SEC}
+DATA_ENCRYPTION_KEY=\${ENC_KEY}
+
+# --- USUARIO ADMIN ---
+# Valor temporal para permitir el arranque.
+# Despues de loguearte, cambia esto por tu ID real.
+OWNER_OPEN_ID=admin-temporal
+
+# --- OPCIONES ---
+ALLOW_DEV_LOGIN=0
+VITE_DEV_BYPASS_AUTH=0
+
+# --- DB ---
+DB_USER=root
+DB_PASS=\${DB_PASS}
+DB_NAME=chin_crm
+MYSQL_ROOT_PASSWORD=\${DB_PASS}
+
+# --- DOMINIO / IP ---
+VITE_OAUTH_PORTAL_URL=http://\${PUBLIC_IP}:3000
+OAUTH_SERVER_URL=http://\${PUBLIC_IP}:3000
+EOF
+
+    echo "✅ Archivo .env generado con contraseñas seguras."
+    echo "🔑 Tu contraseña de base de datos es: \${DB_PASS}"
 fi
 
 # 4. Build and Run
