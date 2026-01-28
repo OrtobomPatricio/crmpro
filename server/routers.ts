@@ -2992,6 +2992,14 @@ export const appRouter = router({
         return settings[0] || null;
       }),
 
+    getScheduling: protectedProcedure
+      .query(async () => {
+        const db = await getDb();
+        if (!db) return null;
+        const settings = await db.select().from(appSettings).limit(1);
+        return settings[0]?.scheduling || null;
+      }),
+
     updateDashboardConfig: protectedProcedure
       .input(z.record(z.boolean()))
       .mutation(async ({ input }) => {
