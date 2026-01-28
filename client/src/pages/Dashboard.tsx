@@ -77,9 +77,12 @@ function DashboardContent() {
     const { user } = useAuth();
     const { data: stats } = trpc.dashboard.getStats.useQuery();
     const { data: settings } = trpc.settings.get.useQuery();
+    const utils = trpc.useUtils();
+
     const updateConfig = trpc.settings.updateDashboardConfig.useMutation({
         onSuccess: () => {
             toast.success("Configuración guardada");
+            utils.settings.get.invalidate();
         }
     });
     const [, setLocation] = useLocation();

@@ -629,9 +629,10 @@ function SettingsContent() {
 }
 
 
+
 function DashboardConfigEditor() {
   const query = trpc.settings.get.useQuery();
-  const utils = trpc.useContext();
+  const utils = trpc.useUtils();
   const mutation = trpc.settings.updateDashboardConfig.useMutation({
     onSuccess: () => {
       toast.success("Dashboard actualizado");
