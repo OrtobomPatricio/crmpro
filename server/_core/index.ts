@@ -40,6 +40,9 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
+  // CRITICAL: Validate production secrets BEFORE starting server
+  validateProductionSecrets();
+
   const app = express();
   app.disable("x-powered-by");
 
