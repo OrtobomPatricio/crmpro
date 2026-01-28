@@ -13,7 +13,7 @@ import { assertSafeOutboundUrl } from "./_core/urlSafety";
 import { encryptSecret, decryptSecret, maskSecret } from "./_core/crypto";
 import { sendCloudMessage } from "./whatsapp/cloud";
 import { dispatchIntegrationEvent } from "./_core/integrationDispatch";
-import { eq, desc, sql, and, count, asc, inArray } from "drizzle-orm";
+import { eq, desc, sql, and, count, asc, inArray, gte } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { nanoid } from "nanoid";
 import { sdk } from "./_core/sdk";
@@ -24,6 +24,7 @@ import { logAccess, getClientIp } from "./services/security";
 import { createBackup, restoreBackup, validateBackupFile, leadsToCSV, parseCSV, importLeadsFromCSV } from "./services/backup";
 
 export const appRouter = router({
+
   system: systemRouter,
 
   // WhatsApp Management
