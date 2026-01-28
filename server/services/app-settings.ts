@@ -1,26 +1,26 @@
-import { desc, eq } from "drizzle-orm";
+import { getDb } from "../db";
 import { appSettings } from "../../drizzle/schema";
+import { eq } from "drizzle-orm";
+import type { MySql2Database } from "drizzle-orm/mysql2";
 
-export async function getOrCreateAppSettings(db: any) {
-    const rows = await db.select().from(appSettings).orderBy(desc(appSettings.id)).limit(1);
+// Allow passing db instance to use within transactions
+export async function getOrCreateAppSettings(dbOrNull?: MySql2Database<any> | null) {
+    const db = dbOrNull || await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const rows = await db.select().from(appSettings).where(eq(appSettings.singleton, 1)).limit(1);
     if (rows[0]) return rows[0];
 
-    await db.insert(appSettings).values({
-        singleton: 1,
-        companyName: "Imagine Lab CRM",
-        timezone: "America/Asuncion",
-        language: "es",
-        currency: "PYG",
-        scheduling: { slotMinutes: 15, maxPerSlot: 6, allowCustomTime: true },
-    });
-
-    const created = await db.select().from(appSettings).orderBy(desc(appSettings.id)).limit(1);
-    return created[0];
+    await db.insert(appSettings).values({ singleton: 1 });
+    const again = await db.select().from(appSettings).where(eq(appSettings.singleton, 1)).limit(1);
+    if (!again[0]) throw new Error("Failed to create app_settings singleton");
+    return again[0];
 }
 
-export async function updateAppSettings(db: any, patch: any) {
+export async function updateAppSettings(db: MySql2Database<any>, values: Partial<typeof appSettings.$inferInsert>) {
     const row = await getOrCreateAppSettings(db);
-    await db.update(appSettings).set(patch).where(eq(appSettings.id, row.id));
-    const fresh = await db.select().from(appSettings).where(eq(appSettings.id, row.id)).limit(1);
-    return fresh[0];
+    // Ensure we don't accidentally create a new row or update others (though singleton prevents it)
+    await db.update(appSettings)
+        .set(values)
+        .where(eq(appSettings.id, row.id));
 }

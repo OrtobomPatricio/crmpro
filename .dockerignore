@@ -12,3 +12,19 @@ dist
 .DS_Store
 .env
 *.log
+
+# Tests & Coverage
+coverage
+playwright-report
+test-results
+**/__tests__
+**/*.test.ts
+**/*.spec.ts
+vitest.config.ts
+
+# Documentation & Misc
+README.md
+docs
+deployment_guide.md
+START_LOCAL.md
+todo.md

@@ -69,7 +69,7 @@ export const appSettings = mysqlTable("app_settings", {
     port: number;
     secure: boolean;
     user: string;
-    pass: string;
+    pass?: string | null;
     from?: string;
   }>(),
 
@@ -78,8 +78,8 @@ export const appSettings = mysqlTable("app_settings", {
     provider: "forge" | "s3";
     bucket?: string;
     region?: string;
-    accessKey?: string;
-    secretKey?: string;
+    accessKey?: string | null;
+    secretKey?: string | null;
     endpoint?: string;
     publicUrl?: string;
   }>(),
@@ -87,13 +87,13 @@ export const appSettings = mysqlTable("app_settings", {
   // AI Configuration (OpenAI/Anthropic)
   aiConfig: json("aiConfig").$type<{
     provider: "openai" | "anthropic";
-    apiKey: string;
+    apiKey?: string | null;
     model?: string;
   }>(),
 
   // Google Maps Configuration
   mapsConfig: json("mapsConfig").$type<{
-    apiKey: string;
+    apiKey?: string | null;
   }>(),
 
   // SLA Configuration

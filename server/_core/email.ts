@@ -15,18 +15,18 @@ export async function getSmtpConfig() {
     const db = await getDb();
     if (!db) return null;
 
-    const settings = await db.select().from(appSettings).orderBy(desc(appSettings.id)).limit(1);
-    if (!settings[0] || !settings[0].smtpConfig) {
-        return null;
-    }
+    const { getOrCreateAppSettings } = await import("../services/app-settings");
+    const row = await getOrCreateAppSettings(db);
 
-    return settings[0].smtpConfig as {
+    if (!row.smtpConfig || !row.smtpConfig.host) return null;
+
+    return row.smtpConfig as {
         host: string;
         port: number;
         secure: boolean;
         user: string;
-        pass: string;
-        from: string;
+        pass?: string | null;
+        from?: string;
     };
 }
 

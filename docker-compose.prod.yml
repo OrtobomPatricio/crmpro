@@ -1,23 +1,29 @@
 services:
   mysql:
     image: mysql:8.0
-    command: --default-authentication-plugin=mysql_native_password --sql_mode="" --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    command: --default-authentication-plugin=mysql_native_password --sql_mode="" --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --max_allowed_packet=64M
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASS}
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASS}
-    # NO PORTS EXPOSED to host machine for security
     expose:
       - "3306"
     volumes:
       - mysql_data:/var/lib/mysql
+    networks:
+      - app_network
     healthcheck:
       test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_PASS}" ]
-      interval: 5s
+      interval: 10s
       timeout: 5s
-      retries: 20
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   app:
     build:
@@ -25,7 +31,7 @@ services:
       args:
         VITE_OAUTH_PORTAL_URL: ${VITE_OAUTH_PORTAL_URL}
         VITE_APP_ID: ${VITE_APP_ID:-chin-crm}
-        VITE_DEV_BYPASS_AUTH: "0" # STRICTLY DISABLED IN PROD
+        VITE_DEV_BYPASS_AUTH: "0"
         VITE_ANALYTICS_ENDPOINT: ${VITE_ANALYTICS_ENDPOINT:-}
         VITE_ANALYTICS_WEBSITE_ID: ${VITE_ANALYTICS_WEBSITE_ID:-}
     restart: unless-stopped
@@ -33,19 +39,20 @@ services:
       mysql:
         condition: service_healthy
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
+    networks:
+      - app_network
     environment:
       NODE_ENV: production
       PORT: 3000
-      # Internal network connection to mysql service
       DATABASE_URL: mysql://${DB_USER}:${DB_PASS}@mysql:3306/${DB_NAME}
       JWT_SECRET: ${JWT_SECRET}
       OWNER_OPEN_ID: ${OWNER_OPEN_ID}
-      ALLOW_DEV_LOGIN: "0" # STRICTLY DISABLED
-      VITE_DEV_BYPASS_AUTH: "0" # STRICTLY DISABLED
+      ALLOW_DEV_LOGIN: "0"
+      VITE_DEV_BYPASS_AUTH: "0"
       VITE_OAUTH_PORTAL_URL: ${VITE_OAUTH_PORTAL_URL}
       VITE_APP_ID: ${VITE_APP_ID:-chin-crm}
-      OAUTH_SERVER_URL: ${OAUTH_SERVER_URL}
+      OAUTH_SERVER_URL: ${OAUTH_SERVER_URL:-${VITE_OAUTH_PORTAL_URL}}
       DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY}
       WHATSAPP_WEBHOOK_VERIFY_TOKEN: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN}
       WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET}
@@ -53,9 +60,24 @@ services:
       WHATSAPP_GRAPH_BASE_URL: ${WHATSAPP_GRAPH_BASE_URL:-https://graph.facebook.com}
       RUN_MIGRATIONS: "1"
     volumes:
-      # Optional: custom uploads handling if needed
       - uploads_data:/app/dist/public/uploads
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 volumes:
   mysql_data:
   uploads_data:
+
+
+networks:
+  app_network:
+    driver: bridge

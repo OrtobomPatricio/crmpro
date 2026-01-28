@@ -24,6 +24,7 @@ import { distributeConversation } from "./services/distribution";
 import { logAccess, getClientIp } from "./services/security";
 import { createBackup, restoreBackup, validateBackupFile, leadsToCSV, parseCSV, importLeadsFromCSV } from "./services/backup";
 import { getOrCreateAppSettings, updateAppSettings } from "./services/app-settings";
+import { sanitizeAppSettings } from "./services/sanitize-settings";
 
 export const appRouter = router({
 
@@ -233,57 +234,16 @@ export const appRouter = router({
     get: permissionProcedure("settings.view").query(async () => {
       const db = await getDb();
       if (!db) return null;
-
-      const rows = await db.select().from(appSettings).limit(1);
-      if (rows.length === 0) {
-        await db.insert(appSettings).values({
-          companyName: "Imagine Lab CRM",
-          timezone: "America/Asuncion",
-          language: "es",
-          currency: "PYG",
-          permissionsMatrix: {
-            owner: ["*"],
-            admin: [
-              "dashboard.*",
-              "leads.*",
-              "kanban.*",
-              "campaigns.*",
-              "chat.*",
-              "scheduling.*",
-              "monitoring.*",
-              "analytics.*",
-              "reports.*",
-              "integrations.*",
-              "settings.*",
-              "users.*",
-            ],
-            supervisor: [
-              "dashboard.view",
-              "leads.view",
-              "kanban.view",
-              "chat.*",
-              "monitoring.*",
-              "analytics.view",
-              "reports.view",
-            ],
-            agent: ["dashboard.view", "leads.*", "kanban.*", "chat.*", "scheduling.*"],
-            viewer: ["dashboard.view", "leads.view", "kanban.view", "analytics.view", "reports.view"],
-          },
-          scheduling: { slotMinutes: 15, maxPerSlot: 6, allowCustomTime: true },
-        });
-        const seeded = await db.select().from(appSettings).limit(1);
-        return sanitizeAppSettings(seeded[0]);
-      }
-
-      return sanitizeAppSettings(rows[0]);
+      const row = await getOrCreateAppSettings(db);
+      return sanitizeAppSettings(row);
     }),
 
-    getScheduling: permissionProcedure("scheduling.view") // or public/protected depending on need
+    getScheduling: permissionProcedure("scheduling.view")
       .query(async () => {
         const db = await getDb();
         if (!db) return null;
-        const rows = await db.select().from(appSettings).limit(1);
-        return rows[0]?.scheduling || null;
+        const row = await getOrCreateAppSettings(db);
+        return row.scheduling || null;
       }),
 
     updateGeneral: permissionProcedure("settings.manage")
@@ -528,12 +488,17 @@ export const appRouter = router({
 
     myPermissions: protectedProcedure.query(async ({ ctx }) => {
       const db = await getDb();
+      // Ensure we don't break if no db or user
       if (!db || !ctx.user) return { role: ctx.user?.role ?? "agent", baseRole: ctx.user?.role ?? "agent", permissions: [] };
-      const rows = await db.select().from(appSettings).limit(1);
-      const matrix = (rows[0] as any)?.permissionsMatrix ?? {};
+
+      const matrix = (await getOrCreateAppSettings(db)).permissionsMatrix ?? {};
       const baseRole = (ctx.user as any).role ?? "agent";
       const customRole = (ctx.user as any).customRole as string | undefined;
-      const role = baseRole === "owner" ? "owner" : (customRole || baseRole);
+
+      // Compute effective role again just to be sure
+      const { computeEffectiveRole } = await import("./_core/rbac");
+      const role = computeEffectiveRole({ baseRole, customRole, permissionsMatrix: matrix });
+
       return { role, baseRole, permissions: role === "owner" ? ["*"] : (matrix[role] ?? []) };
     }),
   }),
@@ -591,14 +556,14 @@ export const appRouter = router({
         }
 
         const value = input.customRole ? input.customRole.trim() : null;
+        if (value === "owner") throw new Error("Forbidden role"); // BLOCK OWNER ESCALATION
 
         // Validate customRole (blocks reserved roles + checks matrix)
         if (value) {
           const settings = await db.select().from(appSettings).limit(1);
           const matrix = settings[0]?.permissionsMatrix ?? {};
-          const validation = validateCustomRole(value, matrix);
-          if (!validation.valid) {
-            throw new Error(validation.error);
+          if (!Object.prototype.hasOwnProperty.call(matrix, value)) {
+            throw new Error("Role does not exist in permissions matrix");
           }
         }
 

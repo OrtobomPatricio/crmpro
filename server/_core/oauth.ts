@@ -12,63 +12,31 @@ function getQueryParam(req: Request, key: string): string | undefined {
 export function registerOAuthRoutes(app: Express) {
   // Dev-only quick login (useful for local testing when OAuth is not configured).
   // Enabled only when ALLOW_DEV_LOGIN=1 and OWNER_OPEN_ID is set.
-  app.get("/api/dev/login", async (req: Request, res: Response) => {
-    // Secure check for dev login
-    const isProduction = process.env.NODE_ENV === "production";
-    const allow = !isProduction && process.env.ALLOW_DEV_LOGIN === "1";
-    const openId = process.env.OWNER_OPEN_ID;
-    const bypass = !isProduction && process.env.VITE_DEV_BYPASS_AUTH === "1";
+  // Dev-only quick login (useful for local testing when OAuth is not configured).
+  // Enabled only when ALLOW_DEV_LOGIN=1 and OWNER_OPEN_ID is set.
+  const isProd = process.env.NODE_ENV === "production";
+  const allowDevLogin = !isProd && process.env.ALLOW_DEV_LOGIN === "1";
 
-    if (!allow || !bypass || !openId) {
-      if (req.headers.accept?.includes("text/html")) {
-        res.status(403).send("Dev login disabled.");
-        return;
-      }
-      res.status(403).json({
-        error: "Dev login disabled. Set ALLOW_DEV_LOGIN=1, VITE_DEV_BYPASS_AUTH=1 and OWNER_OPEN_ID in .env (NON-PROD ONLY)",
-      });
-      return;
-    }
+  if (allowDevLogin) {
+    app.get("/api/dev/login", async (req: Request, res: Response) => {
+      const openId = process.env.OWNER_OPEN_ID;
+      if (!openId) return res.status(500).json({ error: "OWNER_OPEN_ID missing" });
 
-    try {
-      console.log("[DevLogin] Starting dev login for openId:", openId);
-
-      console.log("[DevLogin] Step 1: Upserting user...");
       await db.upsertUser({
         openId,
         name: "Dev User",
         email: null,
         loginMethod: "dev",
         lastSignedIn: new Date(),
+        role: "owner"
       });
-      console.log("[DevLogin] Step 1: User upserted successfully");
+      const sessionToken = await sdk.createSessionToken(openId, { name: "Dev User" });
 
-      console.log("[DevLogin] Step 2: Creating session token...");
-      const sessionToken = await sdk.createSessionToken(openId, {
-        name: "Dev User",
-        expiresInMs: ONE_YEAR_MS,
-      });
-      console.log("[DevLogin] Step 2: Session token created successfully");
-
-      console.log("[DevLogin] Step 3: Setting cookie...");
       const cookieOptions = getSessionCookieOptions(req);
-      res.cookie(COOKIE_NAME, sessionToken, {
-        ...cookieOptions,
-        maxAge: ONE_YEAR_MS,
-      });
-      console.log("[DevLogin] Step 3: Cookie set successfully");
-
-      console.log("[DevLogin] Step 4: Redirecting to /");
-      res.redirect(302, "/");
-    } catch (error) {
-      console.error("[DevLogin] Failed at some step:", error);
-      console.error("[DevLogin] Error stack:", error instanceof Error ? error.stack : "No stack trace");
-      res.status(500).json({
-        error: "Dev login failed",
-        details: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
+      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+      return res.redirect(302, "/");
+    });
+  }
 
   app.get("/api/oauth/callback", async (req: Request, res: Response) => {
     const code = getQueryParam(req, "code");

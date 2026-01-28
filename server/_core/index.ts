@@ -22,6 +22,7 @@ import fs from "fs";
 import { runMigrations } from "../scripts/migrate";
 import { validateProductionSecrets } from "./validate-env";
 import { assertDbConstraints } from "../services/assert-db";
+import { assertEnv } from "./assert-env";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -135,6 +136,9 @@ async function startServer() {
   const RATE_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS ?? "60000");
   const RATE_MAX = Number(process.env.RATE_LIMIT_MAX ?? "600");
   const buckets = new Map<string, { count: number; resetAt: number }>();
+
+  // Health check for Docker/K8s
+  app.get("/api/health", (_req, res) => res.json({ status: "ok", timestamp: new Date().toISOString() }));
 
   app.use((req, res, next) => {
     if (req.path.startsWith("/api/whatsapp")) return next();
@@ -363,8 +367,13 @@ async function startServer() {
 import bcrypt from "bcryptjs";
 import { nanoid } from "nanoid";
 
+
+
 const run = async () => {
-  console.log("[Startup] Server Version: Fix-AutoMigrate-StaticImport-v2");
+  console.log("[Startup] Server Version: Secure-Hardened-v1");
+
+  // CRITICAL: Fail fast if env is unsafe
+  assertEnv();
 
   if (process.env.RUN_MIGRATIONS === "1") {
     try {
@@ -373,17 +382,16 @@ const run = async () => {
       console.log("[Startup] Database migration completed.");
     } catch (e) {
       console.error("[Startup] CRITICAL: Auto-migration failed:", e);
-      if (process.env.NODE_ENV === "production") {
-        console.error("[Startup] Production migration failed. Exiting to prevent data corruption.");
-        process.exit(1);
-      }
+      // Always exit on migration failure
+      process.exit(1);
     }
   } else {
     console.log("[Startup] Skipping migrations (RUN_MIGRATIONS != 1)");
   }
 
   await startServer();
-  await checkAndSeedAdmin();
+  // checkAndSeedAdmin removed
+  // ensureAppSettings intentionally left until Phase 1.3
   await ensureAppSettings();
 };
 
@@ -442,49 +450,7 @@ async function ensureAppSettings() {
   }
 }
 
-async function checkAndSeedAdmin() {
-  const db = await getDb();
-  if (!db) return;
-
-  // In Production, NEVER auto-seed default credentials.
-  if (process.env.NODE_ENV === "production") {
-    console.log("[SEED] Production mode detected. Skipping auto-seed of admin.");
-    // Optional: Check if admin exists and warn if none
-    return;
-  }
-
-  const userCount = await db.select({ count: sql<number>`count(*)` }).from(users);
-  const count = Number(userCount[0]?.count ?? 0);
-
-  if (count === 0) {
-    console.log("[SEED] No users found. Creating default admin (DEV ONLY)...");
-
-    // Fail-safe: if someone tries to use this in prod by mistake, ensure we don't use weak passwords unless forced? 
-    // Actually we already returned if NODE_ENV=production.
-
-    // Allow override via env
-    const email = process.env.BOOTSTRAP_ADMIN_EMAIL || "admin@crm.com";
-    const pass = process.env.BOOTSTRAP_ADMIN_PASSWORD || "admin123";
-
-    const hashedPassword = await bcrypt.hash(pass, 10);
-    const openId = `local_${nanoid(16)}`;
-
-    await db.insert(users).values({
-      openId,
-      name: "Admin User",
-      email: email,
-      password: hashedPassword,
-      role: "owner",
-      loginMethod: "credentials",
-      isActive: true,
-      hasSeenTour: false,
-    });
-
-    console.log("[SEED] Default admin created:");
-    console.log(`Email: ${email}`);
-    console.log(`Password: ${process.env.BOOTSTRAP_ADMIN_PASSWORD ? "*****" : "admin123"}`);
-  }
-}
+// checkAndSeedAdmin function removed for security. Use 'pnpm bootstrap:admin' instead.
 
 // CheckAndSeedAdmin is called in run()
 

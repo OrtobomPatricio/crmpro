@@ -1,59 +1,62 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20 AS base
+FROM node:20-slim AS base
 WORKDIR /app
-
-# pnpm version fija segun package.json (packageManager)
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable && corepack prepare pnpm@10.4.1 --activate
 
 FROM base AS deps
 COPY package.json pnpm-lock.yaml ./
 COPY patches ./patches
-
-RUN apt-get update && apt-get install -y patch
-
+# Install dependencies including dev dependencies (needed for build)
+RUN apt-get update && apt-get install -y --no-install-recommends patch && rm -rf /var/lib/apt/lists/*
 RUN pnpm install --frozen-lockfile
-RUN patch -d node_modules/wouter -p1 < patches/wouter@3.7.1.patch || echo "Patch failed or already applied?"
+# Apply patches if any
+RUN patch -d node_modules/wouter -p1 < patches/wouter@3.7.1.patch || echo "Patch applied or unnecessary"
 
 FROM deps AS build
 COPY . .
 
+# Build arguments mapped to env for build process
 ARG VITE_OAUTH_PORTAL_URL
 ARG VITE_APP_ID
 ARG VITE_DEV_BYPASS_AUTH
 ARG VITE_ANALYTICS_ENDPOINT
 ARG VITE_ANALYTICS_WEBSITE_ID
 
-ENV VITE_OAUTH_PORTAL_URL=$VITE_OAUTH_PORTAL_URL
-ENV VITE_APP_ID=$VITE_APP_ID
-ENV VITE_DEV_BYPASS_AUTH=$VITE_DEV_BYPASS_AUTH
-ENV VITE_ANALYTICS_ENDPOINT=$VITE_ANALYTICS_ENDPOINT
-ENV VITE_ANALYTICS_WEBSITE_ID=$VITE_ANALYTICS_WEBSITE_ID
+ENV VITE_OAUTH_PORTAL_URL=$VITE_OAUTH_PORTAL_URL \
+    VITE_APP_ID=$VITE_APP_ID \
+    VITE_DEV_BYPASS_AUTH=$VITE_DEV_BYPASS_AUTH \
+    VITE_ANALYTICS_ENDPOINT=$VITE_ANALYTICS_ENDPOINT \
+    VITE_ANALYTICS_WEBSITE_ID=$VITE_ANALYTICS_WEBSITE_ID \
+    NODE_OPTIONS="--max-old-space-size=4096" \
+    NODE_ENV=production
 
-ENV NODE_OPTIONS="--max-old-space-size=4096"
-ENV NODE_ENV=production
-
+# Build Client & Server
 RUN pnpm exec vite build --logLevel error
 RUN pnpm exec esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/index.js
 RUN pnpm exec esbuild server/scripts/migrate.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/migrate.js
 
-# deja solo deps de prod para achicar imagen
+# Prune for production
 RUN pnpm prune --prod
 
-FROM node:20 AS runner
+FROM node:20-slim AS runner
 WORKDIR /app
-ENV NODE_ENV=production
-ENV PORT=3000
+ENV NODE_ENV=production \
+    PORT=3000
 
+# Copy necessary files from build
 COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
+# Drizzle migration files (SQL) are required at runtime
 COPY --from=build /app/drizzle ./drizzle
-COPY --from=build /app/drizzle.config.ts ./drizzle.config.ts
-COPY --from=build /app/drizzle/schema.ts ./drizzle/schema.ts
+# Schema might be needed if using drizzle-kit at runtime, but usually not for compiled migrate.js. Keeping just in case.
+COPY --from=build /app/drizzle.config.ts ./
+COPY --from=build /app/drizzle/schema.ts ./drizzle/
 
-COPY deploy/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh
+COPY deploy/docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 3000

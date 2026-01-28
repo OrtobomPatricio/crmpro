@@ -5,7 +5,7 @@ import type { TrpcContext } from "./context";
 import { getDb } from "../db";
 import { appSettings } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
-import { getEffectiveRole } from "./security-helpers";
+import { computeEffectiveRole } from "./rbac";
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
@@ -128,7 +128,11 @@ export const permissionProcedure = (permission: string) =>
       const matrix = await loadPermissionsMatrix();
 
       // CRITICAL: Use helper to prevent owner escalation via customRole
-      const effectiveRole = getEffectiveRole(baseRole, customRole, matrix);
+      const effectiveRole = computeEffectiveRole({
+        baseRole,
+        customRole,
+        permissionsMatrix: matrix,
+      });
 
       const allowed = await hasPermission(effectiveRole, permission);
       if (!allowed) {
