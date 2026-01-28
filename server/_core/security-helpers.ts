@@ -4,31 +4,36 @@
 
 /**
  * Sanitize app settings before returning to client
- * Masks all sensitive credentials (SMTP passwords, API keys, storage secrets)
+ * CRITICAL: Don't return fake values that could be re-saved to DB
+ * Instead, return metadata indicating a secret exists
  */
 export function sanitizeAppSettings(settings: any) {
     if (!settings) return null;
 
     const sanitized = { ...settings };
 
-    // Mask SMTP password
-    if (sanitized.smtpConfig) {
-        sanitized.smtpConfig = { ...sanitized.smtpConfig, pass: "••••••••" };
+    // SMTP: Remove password, indicate it exists
+    if (sanitized.smtpConfig?.pass) {
+        const { pass, ...rest } = sanitized.smtpConfig;
+        sanitized.smtpConfig = { ...rest, hasPassword: true };
     }
 
-    // Mask AI API key
-    if (sanitized.aiConfig) {
-        sanitized.aiConfig = { ...sanitized.aiConfig, apiKey: "••••••••" };
+    // AI: Remove API key, indicate it exists
+    if (sanitized.aiConfig?.apiKey) {
+        const { apiKey, ...rest } = sanitized.aiConfig;
+        sanitized.aiConfig = { ...rest, hasApiKey: true };
     }
 
-    // Mask Maps API key
-    if (sanitized.mapsConfig) {
-        sanitized.mapsConfig = { ...sanitized.mapsConfig, apiKey: "••••••••" };
+    // Maps: Remove API key, indicate it exists
+    if (sanitized.mapsConfig?.apiKey) {
+        const { apiKey, ...rest } = sanitized.mapsConfig;
+        sanitized.mapsConfig = { ...rest, hasApiKey: true };
     }
 
-    // Mask Storage secret key
-    if (sanitized.storageConfig) {
-        sanitized.storageConfig = { ...sanitized.storageConfig, secretKey: "••••••••" };
+    // Storage: Remove secret key, indicate it exists
+    if (sanitized.storageConfig?.secretKey) {
+        const { secretKey, ...rest } = sanitized.storageConfig;
+        sanitized.storageConfig = { ...rest, hasSecretKey: true };
     }
 
     return sanitized;
