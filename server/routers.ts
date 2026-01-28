@@ -477,42 +477,70 @@ export const appRouter = router({
         if (!existing[0]) {
           await db.insert(appSettings).values({ storageConfig: input });
         } else {
-          await db.update(appSettings).set({ storageConfig: input });
-        }
-        return { success: true };
-      }),
+
+          // CRITICAL: Preserve existing accessKey and secretKey if not provided
+          const existing = await db.select().from(appSettings).limit(1);
+          const existingAccessKey = existing[0]?.storageConfig?.accessKey;
+          const existingSecretKey = existing[0]?.storageConfig?.secretKey;
+
+          const finalAccessKey = input.accessKey?.trim() ? input.accessKey : (existingAccessKey || "");
+          const finalSecretKey = input.secretKey?.trim() ? input.secretKey : (existingSecretKey || "");
+
+          const finalConfig = { ...input, accessKey: finalAccessKey, secretKey: finalSecretKey };
+
+          if (!existing[0]) {
+            await db.insert(appSettings).values({ storageConfig: finalConfig });
+          } else {
+            await db.update(appSettings).set({ storageConfig: finalConfig });
+          }
+          return { success: true };
+        }),
 
     updateAiConfig: permissionProcedure("settings.manage")
       .input(z.object({
         provider: z.enum(["openai", "anthropic"]),
-        apiKey: z.string().min(1),
-        model: z.string().optional(),
+        apiKey: z.string().optional(),
+        model: z.string(),
       }))
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("Database not available");
+
+        // CRITICAL: Preserve existing API key if not provided
         const existing = await db.select().from(appSettings).limit(1);
+        const existingKey = existing[0]?.aiConfig?.apiKey;
+        const finalKey = input.apiKey?.trim() ? input.apiKey : (existingKey || "");
+
+        const finalConfig = { ...input, apiKey: finalKey };
+
         // In a real app we might encrypt the apiKey
         if (!existing[0]) {
-          await db.insert(appSettings).values({ aiConfig: input });
+          await db.insert(appSettings).values({ aiConfig: finalConfig });
         } else {
-          await db.update(appSettings).set({ aiConfig: input });
+          await db.update(appSettings).set({ aiConfig: finalConfig });
         }
         return { success: true };
       }),
 
     updateMapsConfig: permissionProcedure("settings.manage")
       .input(z.object({
-        apiKey: z.string().min(1),
+        apiKey: z.string().optional(),
       }))
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("Database not available");
+
+        // CRITICAL: Preserve existing API key if not provided
         const existing = await db.select().from(appSettings).limit(1);
+        const existingKey = existing[0]?.mapsConfig?.apiKey;
+        const finalKey = input.apiKey?.trim() ? input.apiKey : (existingKey || "");
+
+        const finalConfig = { ...input, apiKey: finalKey };
+
         if (!existing[0]) {
-          await db.insert(appSettings).values({ mapsConfig: input });
+          await db.insert(appSettings).values({ mapsConfig: finalConfig });
         } else {
-          await db.update(appSettings).set({ mapsConfig: input });
+          await db.update(appSettings).set({ mapsConfig: finalConfig });
         }
         return { success: true };
       }),
