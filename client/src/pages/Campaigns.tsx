@@ -1,4 +1,4 @@
-
+import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,15 +36,19 @@ import {
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export default function Campaigns() {
   const [, setLocation] = useLocation();
   const utils = trpc.useUtils();
   const { data: campaigns, isLoading } = trpc.campaigns.list.useQuery();
+  const [campaignToDelete, setCampaignToDelete] = React.useState<number | null>(null);
+  const [campaignToLaunch, setCampaignToLaunch] = React.useState<number | null>(null);
 
   const deleteCampaign = trpc.campaigns.delete.useMutation({
     onSuccess: () => {
       toast.success("Campaña eliminada");
+      setCampaignToDelete(null);
       utils.campaigns.list.invalidate();
     },
     onError: (err) => toast.error(err.message),
@@ -53,6 +57,7 @@ export default function Campaigns() {
   const launchCampaign = trpc.campaigns.launch.useMutation({
     onSuccess: (data) => {
       toast.success(`Campaña lanzada a ${data.recipientsCount} destinatarios`);
+      setCampaignToLaunch(null);
       utils.campaigns.list.invalidate();
     },
     onError: (err) => toast.error(err.message),
@@ -90,127 +95,127 @@ export default function Campaigns() {
   const completed = campaigns?.filter(c => c.status === 'completed').length || 0;
 
   return (
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Campañas</h1>
-            <p className="text-muted-foreground">
-              Gestiona campañas multicanal y automatizaciones
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setLocation("/templates")}>
-              <FileText className="mr-2 h-4 w-4" />
-              Plantillas
-            </Button>
-            <Button onClick={() => setLocation("/campaigns/new")}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nueva Campaña
-            </Button>
-          </div>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Campañas</h1>
+          <p className="text-muted-foreground">
+            Gestiona campañas multicanal y automatizaciones
+          </p>
         </div>
-
-        {/* Stats */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Campañas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{total}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">En Curso</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{running}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Completadas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{completed}</div>
-            </CardContent>
-          </Card>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setLocation("/templates")}>
+            <FileText className="mr-2 h-4 w-4" />
+            Plantillas
+          </Button>
+          <Button onClick={() => setLocation("/campaigns/new")}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nueva Campaña
+          </Button>
         </div>
+      </div>
 
+      {/* Stats */}
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
-          <CardHeader>
-            <CardTitle>Historial</CardTitle>
-            <CardDescription>
-              Tus campañas recientes
-            </CardDescription>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Campañas</CardTitle>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : campaigns?.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                <p>No tienes campañas creadas.</p>
-                <Button variant="link" onClick={() => setLocation("/campaigns/new")}>Crear la primera</Button>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Audiencia</TableHead>
-                    <TableHead>Creada</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {campaigns?.map((campaign) => (
-                    <TableRow key={campaign.id}>
-                      <TableCell className="font-medium">{campaign.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="uppercase text-[10px] tracking-wider">
-                          {(campaign as any).type || 'whatsapp'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(campaign.status)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Users className="h-3 w-3" />
-                          {campaign.totalRecipients || '-'}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{formatDate(campaign.createdAt)}</TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {campaign.status === "draft" && (
-                              <DropdownMenuItem onClick={() => launchCampaign.mutate({ campaignId: campaign.id })}>
-                                <Play className="mr-2 h-4 w-4" /> Lanzar
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem className="text-red-600" onClick={() => deleteCampaign.mutate({ id: campaign.id })}>
-                              <Trash2 className="mr-2 h-4 w-4" /> Eliminar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+            <div className="text-2xl font-bold">{total}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">En Curso</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{running}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Completadas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{completed}</div>
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Historial</CardTitle>
+          <CardDescription>
+            Tus campañas recientes
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : campaigns?.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-20" />
+              <p>No tienes campañas creadas.</p>
+              <Button variant="link" onClick={() => setLocation("/campaigns/new")}>Crear la primera</Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Audiencia</TableHead>
+                  <TableHead>Creada</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {campaigns?.map((campaign) => (
+                  <TableRow key={campaign.id}>
+                    <TableCell className="font-medium">{campaign.name}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="uppercase text-[10px] tracking-wider">
+                        {(campaign as any).type || 'whatsapp'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{getStatusBadge(campaign.status)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Users className="h-3 w-3" />
+                        {campaign.totalRecipients || '-'}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDate(campaign.createdAt)}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {campaign.status === "draft" && (
+                            <DropdownMenuItem onClick={() => setCampaignToLaunch(campaign.id)}>
+                              <Play className="mr-2 h-4 w-4" /> Lanzar
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem className="text-red-600" onClick={() => setCampaignToDelete(campaign.id)}>
+                            <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

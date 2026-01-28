@@ -475,9 +475,12 @@ function MapsSettings() {
   );
 }
 
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+
 function WebhookIntegrations() {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const integrationsQuery = trpc.integrations.list.useQuery();
   const utils = trpc.useContext();
@@ -485,6 +488,7 @@ function WebhookIntegrations() {
   const deleteMutation = trpc.integrations.delete.useMutation({
     onSuccess: () => {
       toast.success("Integración eliminada");
+      setConfirmDeleteId(null);
       integrationsQuery.refetch();
     },
     onError: (e) => toast.error(e.message),
@@ -515,10 +519,12 @@ function WebhookIntegrations() {
     setOpen(true);
   };
 
-  const handleDelete = (id: number) => {
-    if (confirm("¿Estás seguro de eliminar esta integración?")) {
-      deleteMutation.mutate({ id });
-    }
+  const handleDeleteClick = (id: number) => {
+    setConfirmDeleteId(id);
+  };
+
+  const confirmDelete = () => {
+    if (confirmDeleteId) deleteMutation.mutate({ id: confirmDeleteId });
   };
 
   return (
@@ -597,14 +603,14 @@ function WebhookIntegrations() {
                   />
                 </div>
 
-                <Button variant="outline" size="icon" onClick={() => testMutation.mutate({ id: integration.id })} title="Probar Webhook" disabled={testMutation.isPending}>
+                <Button variant="outline" size="icon" onClick={() => testMutation.mutate({ id: integration.id })} title="Probar Webhook" isLoading={testMutation.isPending} disabled={testMutation.isPending}>
                   <Send className="w-4 h-4" />
                 </Button>
 
                 <Button variant="outline" size="sm" onClick={() => handleEdit(integration.id)}>
                   Editar
                 </Button>
-                <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(integration.id)}>
+                <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => handleDeleteClick(integration.id)} isLoading={deleteMutation.isPending && confirmDeleteId === integration.id}>
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
@@ -619,6 +625,17 @@ function WebhookIntegrations() {
             </div>
           )}
         </div>
+
+        <ConfirmDialog
+          open={!!confirmDeleteId}
+          onOpenChange={(open) => !open && setConfirmDeleteId(null)}
+          onConfirm={confirmDelete}
+          title="¿Eliminar integración?"
+          description="Esta acción no se puede deshacer. Se dejarán de enviar eventos a este webhook."
+          confirmText="Eliminar"
+          variant="destructive"
+          isLoading={deleteMutation.isPending}
+        />
       </CardContent>
     </Card>
   );

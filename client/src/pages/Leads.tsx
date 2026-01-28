@@ -63,8 +63,9 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+import { normalizePhone, isValidE164 } from "@/lib/phone-utils";
 import { Checkbox } from "@/components/ui/checkbox";
-
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 type LeadStatus =
   | "new"
   | "contacted"
@@ -182,6 +183,7 @@ function LeadsContent() {
     onSuccess: () => {
       utils.leads.list.invalidate();
       toast.success("Lead eliminado");
+      setLeadToDelete(null);
     },
     onError: (error) => toast.error(error.message),
   });
@@ -191,9 +193,16 @@ function LeadsContent() {
       toast.error("Por favor completa los campos requeridos");
       return;
     }
+    // Validate and normalize phone
+    const normalizedPhone = normalizePhone(newLead.phone);
+    if (!isValidE164(normalizedPhone)) {
+      toast.error("El número de teléfono no es válido (E.164). Ejemplo: +595981123456");
+      return;
+    }
+
     createLead.mutate({
       name: newLead.name,
-      phone: newLead.phone,
+      phone: normalizedPhone,
       email: newLead.email || undefined,
       country: newLead.country,
       source: newLead.source || undefined,
@@ -615,7 +624,7 @@ function LeadsContent() {
 
                                 <DropdownMenuItem
                                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                                  onClick={() => deleteLead.mutate({ id: lead.id })}
+                                  onClick={() => setLeadToDelete(lead.id)}
                                 >
                                   Eliminar Lead
                                 </DropdownMenuItem>
@@ -659,6 +668,19 @@ function LeadsContent() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={!!leadToDelete}
+        onOpenChange={(open) => !open && setLeadToDelete(null)}
+        onConfirm={() => {
+          if (leadToDelete) deleteLead.mutate({ id: leadToDelete });
+        }}
+        title="¿Eliminar Lead?"
+        description="Esta acción eliminará permanentemente al lead y todo su historial. No se puede deshacer."
+        confirmText="Eliminar"
+        variant="destructive"
+        isLoading={deleteLead.isPending}
+      />
     </div>
   );
 }

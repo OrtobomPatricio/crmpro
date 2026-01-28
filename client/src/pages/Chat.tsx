@@ -3,7 +3,8 @@ import { ChatThread } from "@/components/chat/ChatThread";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import {
   Filter,
   ArrowUpDown,
@@ -49,7 +50,33 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
 export default function ChatPage() {
+  const [location, setLocation] = useLocation();
   const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null);
+
+  const getOrCreateMutation = trpc.chat.getOrCreateByLeadId.useMutation({
+    onSuccess: (data) => {
+      setSelectedConversationId(data.id);
+      // Clean URL
+      // setLocation("/chat"); 
+      // Actually keeping query param might be useful or not? Let's clean it to avoid re-triggering
+      window.history.replaceState({}, "", "/chat");
+    },
+    onError: (e) => {
+      console.error("Failed to open chat for lead", e);
+      // toast.error(e.message); 
+    }
+  });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const leadIdParam = params.get("leadId");
+    if (leadIdParam) {
+      const leadId = parseInt(leadIdParam);
+      if (!isNaN(leadId)) {
+        getOrCreateMutation.mutate({ leadId });
+      }
+    }
+  }, []); // Run once on mount
 
   return (
     <div className="h-[calc(100vh-80px)] flex gap-4">

@@ -120,7 +120,7 @@ function DashboardContent() {
         'commissions': true,
         'goals': true,
         'achievements': true,
-        'warmup': true,
+
     });
 
     // Load config from backend

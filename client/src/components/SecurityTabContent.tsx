@@ -37,7 +37,7 @@ export function SecurityTabContent() {
             toast.success("Configuración de seguridad actualizada");
             utils.settings.get.invalidate();
         },
-        onError: (e) => toast.error(e.message)
+        onError: (e: any) => toast.error(e.message)
     });
 
     const revokeSession = trpc.security.revokeSession.useMutation({
@@ -45,7 +45,7 @@ export function SecurityTabContent() {
             toast.success("Sesión revocada");
             sessionsQuery.refetch();
         },
-        onError: (e) => toast.error(e.message),
+        onError: (e: any) => toast.error(e.message),
     });
 
     const handleAddIp = () => {

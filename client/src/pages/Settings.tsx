@@ -40,7 +40,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { SecurityTabContent } from "@/components/SecurityTabContent";
+
 import { SalesConfigEditor } from "@/components/SalesConfigEditor";
 
 const TZ_OPTIONS = [

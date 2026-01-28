@@ -783,6 +783,111 @@ export const appRouter = router({
         recentLeads,
       };
     }),
+
+    getPipelineFunnel: permissionProcedure("dashboard.view")
+      .query(async () => {
+        const db = await getDb();
+        if (!db) return [];
+
+        const stageCounts = await db
+          .select({
+            stageId: leads.pipelineStageId,
+            stageName: pipelineStages.name,
+            stageColor: pipelineStages.color,
+            stageOrder: pipelineStages.order,
+            count: sql<number>`count(*)`,
+          })
+          .from(leads)
+          .leftJoin(pipelineStages, eq(leads.pipelineStageId, pipelineStages.id))
+          .where(sql`${leads.pipelineStageId} IS NOT NULL`)
+          .groupBy(leads.pipelineStageId, pipelineStages.name, pipelineStages.color, pipelineStages.order)
+          .orderBy(asc(pipelineStages.order));
+
+        return stageCounts.map(s => ({
+          stage: s.stageName || "Sin etapa",
+          count: Number(s.count),
+          color: s.stageColor || "#e2e8f0",
+        }));
+      }),
+
+    getLeaderboard: permissionProcedure("dashboard.view")
+      .query(async () => {
+        const db = await getDb();
+        if (!db) return [];
+
+        const leaderboard = await db
+          .select({
+            userId: leads.assignedToId,
+            userName: users.name,
+            dealsWon: sql<number>`count(*)`,
+            totalCommission: sql<number>`sum(${leads.commission})`,
+          })
+          .from(leads)
+          .leftJoin(users, eq(leads.assignedToId, users.id))
+          .where(eq(leads.status, "won"))
+          .groupBy(leads.assignedToId, users.name)
+          .orderBy(desc(sql`count(*)`))
+          .limit(10);
+
+        return leaderboard.map((l, i) => ({
+          rank: i + 1,
+          name: l.userName || "Sin asignar",
+          dealsWon: Number(l.dealsWon),
+          commission: Number(l.totalCommission || 0),
+        }));
+      }),
+
+    getUpcomingAppointments: permissionProcedure("dashboard.view")
+      .query(async () => {
+        const db = await getDb();
+        if (!db) return [];
+
+        const upcoming = await db
+          .select({
+            id: appointments.id,
+            firstName: appointments.firstName,
+            lastName: appointments.lastName,
+            phone: appointments.phone,
+            appointmentDate: appointments.appointmentDate,
+            appointmentTime: appointments.appointmentTime,
+            status: appointments.status,
+            reasonName: appointmentReasons.name,
+          })
+          .from(appointments)
+          .leftJoin(appointmentReasons, eq(appointments.reasonId, appointmentReasons.id))
+          .where(
+            and(
+              sql`${appointments.appointmentDate} >= CURDATE()`,
+              inArray(appointments.status, ["scheduled", "confirmed"])
+            )
+          )
+          .orderBy(asc(appointments.appointmentDate), asc(appointments.appointmentTime))
+          .limit(5);
+
+        return upcoming;
+      }),
+
+    getRecentActivity: permissionProcedure("dashboard.view")
+      .query(async () => {
+        const db = await getDb();
+        if (!db) return [];
+
+        const activities = await db
+          .select({
+            id: activityLogs.id,
+            action: activityLogs.action,
+            entityType: activityLogs.entityType,
+            entityId: activityLogs.entityId,
+            userName: users.name,
+            createdAt: activityLogs.createdAt,
+          })
+          .from(activityLogs)
+          .leftJoin(users, eq(activityLogs.userId, users.id))
+          .orderBy(desc(activityLogs.createdAt))
+          .limit(10);
+
+        return activities;
+      }),
   }),
 
   pipelines: router({
@@ -1893,6 +1998,74 @@ export const appRouter = router({
 
   // Conversations/Chat router
   chat: router({
+    getOrCreateByLeadId: permissionProcedure("chat.view")
+      .input(z.object({ leadId: z.number() }))
+      .mutation(async ({ input, ctx }) => { // Changed to mutation as it might create
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+
+        // 1. Try to find existing conversation by leadId
+        const existing = await db.select()
+          .from(conversations)
+          .where(eq(conversations.leadId, input.leadId))
+          .limit(1);
+
+        if (existing[0]) {
+          return existing[0];
+        }
+
+        // 2. Fetch lead to get phone number
+        const lead = await db.select().from(leads).where(eq(leads.id, input.leadId)).limit(1);
+        if (!lead[0]) throw new Error("Lead not found");
+
+        // 3. Try to find conversation by phone (in case it wasn't linked yet)
+        const byPhone = await db.select()
+          .from(conversations)
+          .where(eq(conversations.contactPhone, lead[0].phone))
+          .limit(1);
+
+        if (byPhone[0]) {
+          // Link it to the lead
+          await db.update(conversations)
+            .set({ leadId: input.leadId, contactName: lead[0].name })
+            .where(eq(conversations.id, byPhone[0].id));
+          return { ...byPhone[0], leadId: input.leadId };
+        }
+
+        // 4. Create new conversation
+        // We need a default whatsapp channel. For now picking the first connected one or null if none.
+        // Ideally we should ask which channel to start from, but for now we auto-select.
+        const channels = await db.select().from(whatsappConnections).where(eq(whatsappConnections.isConnected, true)).limit(1);
+        const defaultChannelId = channels[0]?.whatsappNumberId;
+
+        if (!defaultChannelId) throw new Error("No active WhatsApp channel found to start conversation");
+
+        const result = await db.insert(conversations).values({
+          channel: 'whatsapp',
+          whatsappNumberId: defaultChannelId,
+          contactPhone: lead[0].phone,
+          contactName: lead[0].name,
+          leadId: input.leadId,
+          status: 'active',
+          unreadCount: 0,
+          assignedToId: ctx.user?.id, // Assign to current user initially
+        });
+
+        return {
+          id: result[0].insertId,
+          channel: 'whatsapp',
+          whatsappNumberId: defaultChannelId,
+          contactPhone: lead[0].phone,
+          contactName: lead[0].name,
+          leadId: input.leadId,
+          status: 'active',
+          unreadCount: 0,
+          assignedToId: ctx.user?.id,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+      }),
+
     listConversations: permissionProcedure("chat.view")
       .input(z.object({ whatsappNumberId: z.number().optional() }))
       .query(async ({ input }) => {
@@ -2607,15 +2780,34 @@ export const appRouter = router({
           .select()
           .from(sessions)
           .where(eq(sessions.userId, (ctx.user as any).id))
-          .orderBy(desc(sessions.lastActive));
+          .orderBy(desc(sessions.lastActivityAt));
 
         return rows.map(r => ({
           id: r.id,
-          device: r.device || "Unknown",
-          ip: r.ip || "0.0.0.0",
-          lastActive: r.lastActive,
+          device: r.userAgent || "Unknown", // Fallback to userAgent as device
+          ip: r.ipAddress || "0.0.0.0",
+          lastActive: r.lastActivityAt,
           createdAt: r.createdAt,
         }));
+      }),
+
+    revokeSession: permissionProcedure("settings.manage")
+      .input(z.object({ sessionId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+
+        await db.delete(sessions).where(eq(sessions.id, input.sessionId));
+
+        await logAccess({
+          userId: ctx.user?.id,
+          action: "revoke_session",
+          metadata: { sessionId: input.sessionId },
+          ipAddress: getClientIp(ctx.req),
+          userAgent: ctx.req.headers['user-agent'] as string
+        });
+
+        return { success: true };
       }),
 
 
@@ -2749,152 +2941,7 @@ export const appRouter = router({
   }),
 
   // Dashboard Widgets Data
-  dashboard: router({
-    getStats: permissionProcedure("dashboard.view")
-      .query(async () => {
-        const db = await getDb();
-        if (!db) return { totalLeads: 0, activeNumbers: 0, messagesToday: 0, conversionRate: 0 };
 
-        // 1. Total Leads
-        const leadsCount = await db.select({ count: sql<number>`count(*)` }).from(leads);
-        const totalLeads = Number(leadsCount[0]?.count ?? 0);
-
-        // 2. Active WhatsApp Numbers
-        const numbersCount = await db.select({ count: sql<number>`count(*)` }).from(whatsappConnections).where(eq(whatsappConnections.isConnected, true));
-        const activeNumbers = Number(numbersCount[0]?.count ?? 0);
-
-        // 3. Messages Today (Outbound)
-        const startOfDay = new Date();
-        startOfDay.setHours(0, 0, 0, 0);
-        const messagesCount = await db
-          .select({ count: sql<number>`count(*)` })
-          .from(chatMessages)
-          .where(and(
-            eq(chatMessages.direction, "outbound"),
-            gte(chatMessages.createdAt, startOfDay)
-          ));
-        const messagesToday = Number(messagesCount[0]?.count ?? 0);
-
-        // 4. Conversion Rate (Won / Total)
-        const wonCount = await db.select({ count: sql<number>`count(*)` }).from(leads).where(eq(leads.status, "won"));
-        const won = Number(wonCount[0]?.count ?? 0);
-        const conversionRate = totalLeads > 0 ? Math.round((won / totalLeads) * 100) : 0;
-
-        return {
-          totalLeads,
-          activeNumbers,
-          messagesToday,
-          conversionRate
-        };
-      }),
-
-    getPipelineFunnel: permissionProcedure("dashboard.view")
-      .query(async () => {
-        const db = await getDb();
-        if (!db) return [];
-
-        // Get lead counts by pipeline stage
-        const stageCounts = await db
-          .select({
-            stageId: leads.pipelineStageId,
-            stageName: pipelineStages.name,
-            stageColor: pipelineStages.color,
-            stageOrder: pipelineStages.order,
-            count: sql<number>`count(*)`,
-          })
-          .from(leads)
-          .leftJoin(pipelineStages, eq(leads.pipelineStageId, pipelineStages.id))
-          .where(sql`${leads.pipelineStageId} IS NOT NULL`)
-          .groupBy(leads.pipelineStageId, pipelineStages.name, pipelineStages.color, pipelineStages.order)
-          .orderBy(asc(pipelineStages.order));
-
-        return stageCounts.map(s => ({
-          stage: s.stageName || "Sin etapa",
-          count: Number(s.count),
-          color: s.stageColor || "#e2e8f0",
-        }));
-      }),
-
-    getLeaderboard: permissionProcedure("dashboard.view")
-      .query(async () => {
-        const db = await getDb();
-        if (!db) return [];
-
-        // Get top agents by number of won deals and total commission
-        const leaderboard = await db
-          .select({
-            userId: leads.assignedToId,
-            userName: users.name,
-            dealsWon: sql<number>`count(*)`,
-            totalCommission: sql<number>`sum(${leads.commission})`,
-          })
-          .from(leads)
-          .leftJoin(users, eq(leads.assignedToId, users.id))
-          .where(eq(leads.status, "won"))
-          .groupBy(leads.assignedToId, users.name)
-          .orderBy(desc(sql`sum(${leads.commission})`))
-          .limit(5);
-
-        return leaderboard.map((agent, index) => ({
-          rank: index + 1,
-          name: agent.userName || "Sin asignar",
-          dealsWon: Number(agent.dealsWon),
-          commission: Number(agent.totalCommission || 0),
-        }));
-      }),
-
-    getUpcomingAppointments: permissionProcedure("dashboard.view")
-      .query(async () => {
-        const db = await getDb();
-        if (!db) return [];
-
-        const upcoming = await db
-          .select({
-            id: appointments.id,
-            firstName: appointments.firstName,
-            lastName: appointments.lastName,
-            phone: appointments.phone,
-            appointmentDate: appointments.appointmentDate,
-            appointmentTime: appointments.appointmentTime,
-            status: appointments.status,
-            reasonName: appointmentReasons.name,
-          })
-          .from(appointments)
-          .leftJoin(appointmentReasons, eq(appointments.reasonId, appointmentReasons.id))
-          .where(
-            and(
-              sql`${appointments.appointmentDate} >= CURDATE()`,
-              inArray(appointments.status, ["scheduled", "confirmed"])
-            )
-          )
-          .orderBy(asc(appointments.appointmentDate), asc(appointments.appointmentTime))
-          .limit(5);
-
-        return upcoming;
-      }),
-
-    getRecentActivity: permissionProcedure("dashboard.view")
-      .query(async () => {
-        const db = await getDb();
-        if (!db) return [];
-
-        const activities = await db
-          .select({
-            id: activityLogs.id,
-            action: activityLogs.action,
-            entityType: activityLogs.entityType,
-            entityId: activityLogs.entityId,
-            userName: users.name,
-            createdAt: activityLogs.createdAt,
-          })
-          .from(activityLogs)
-          .leftJoin(users, eq(activityLogs.userId, users.id))
-          .orderBy(desc(activityLogs.createdAt))
-          .limit(10);
-
-        return activities;
-      }),
-  }),
   // Internal Team Chat
   internalChat: router({
     send: protectedProcedure

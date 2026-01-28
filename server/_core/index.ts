@@ -2,6 +2,8 @@ import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
+import cors from "cors";
+import helmet from "helmet";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerWhatsAppWebhookRoutes } from "../whatsapp/webhook";
@@ -53,17 +55,41 @@ async function startServer() {
   }
 
   // Basic security headers (without extra deps)
-  app.use((_req, res, next) => {
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("Referrer-Policy", "no-referrer");
-    res.setHeader("X-Frame-Options", "DENY");
-    res.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
-    // HSTS only when behind HTTPS
-    if (_req.secure || String(_req.headers["x-forwarded-proto"] ?? "").toLowerCase().includes("https")) {
-      res.setHeader("Strict-Transport-Security", "max-age=15552000; includeSubDomains");
-    }
-    next();
-  });
+  // Security Middleware
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://maps.googleapis.com"],
+        imgSrc: ["'self'", "data:", "blob:", "https://*.googleusercontent.com", "https://maps.gstatic.com"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+        connectSrc: ["'self'", "https://maps.googleapis.com"],
+      },
+    },
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin for images if needed
+  }));
+
+  app.use(cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+
+      // Allow localhost in development
+      if (process.env.NODE_ENV !== "production") {
+        return callback(null, true);
+      }
+
+      // Production strict check
+      const allowedOrigins = [process.env.CLIENT_URL, process.env.VITE_API_URL].filter(Boolean);
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  }));
 
   // Request id
   app.use((req, res, next) => {
