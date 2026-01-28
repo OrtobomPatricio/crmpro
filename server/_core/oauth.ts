@@ -16,7 +16,7 @@ export function registerOAuthRoutes(app: Express) {
     // Secure check for dev login
     const isProduction = process.env.NODE_ENV === "production";
     const allow = !isProduction && process.env.ALLOW_DEV_LOGIN === "1";
-    const openId = process.env.OWNER_OPEN_ID || "dev-owner";
+    const openId = process.env.OWNER_OPEN_ID;
     const bypass = !isProduction && process.env.VITE_DEV_BYPASS_AUTH === "1";
 
     if (!allow || !bypass || !openId) {

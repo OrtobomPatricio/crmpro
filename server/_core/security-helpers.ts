@@ -7,36 +7,43 @@
  * CRITICAL: Don't return fake values that could be re-saved to DB
  * Instead, return metadata indicating a secret exists
  */
+import { maskSecret } from "./crypto";
+
 export function sanitizeAppSettings(settings: any) {
     if (!settings) return null;
+    const s = { ...settings };
 
-    const sanitized = { ...settings };
-
-    // SMTP: Remove password, indicate it exists
-    if (sanitized.smtpConfig?.pass) {
-        const { pass, ...rest } = sanitized.smtpConfig;
-        sanitized.smtpConfig = { ...rest, hasPassword: true };
+    if (s.smtpConfig) {
+        const pass = s.smtpConfig.pass;
+        s.smtpConfig = {
+            ...s.smtpConfig,
+            pass: null,
+            hasPass: !!pass,
+            passMasked: maskSecret(pass),
+        };
     }
 
-    // AI: Remove API key, indicate it exists
-    if (sanitized.aiConfig?.apiKey) {
-        const { apiKey, ...rest } = sanitized.aiConfig;
-        sanitized.aiConfig = { ...rest, hasApiKey: true };
+    if (s.aiConfig) {
+        const apiKey = s.aiConfig.apiKey;
+        s.aiConfig = { ...s.aiConfig, apiKey: null, hasApiKey: !!apiKey, apiKeyMasked: maskSecret(apiKey) };
     }
 
-    // Maps: Remove API key, indicate it exists
-    if (sanitized.mapsConfig?.apiKey) {
-        const { apiKey, ...rest } = sanitized.mapsConfig;
-        sanitized.mapsConfig = { ...rest, hasApiKey: true };
+    if (s.mapsConfig) {
+        const apiKey = s.mapsConfig.apiKey;
+        s.mapsConfig = { ...s.mapsConfig, apiKey: null, hasApiKey: !!apiKey, apiKeyMasked: maskSecret(apiKey) };
     }
 
-    // Storage: Remove secret key, indicate it exists
-    if (sanitized.storageConfig?.secretKey) {
-        const { secretKey, ...rest } = sanitized.storageConfig;
-        sanitized.storageConfig = { ...rest, hasSecretKey: true };
+    if (s.storageConfig) {
+        const secretKey = s.storageConfig.secretKey;
+        s.storageConfig = {
+            ...s.storageConfig,
+            secretKey: null,
+            hasSecretKey: !!secretKey,
+            secretKeyMasked: maskSecret(secretKey),
+        };
     }
 
-    return sanitized;
+    return s;
 }
 
 /**

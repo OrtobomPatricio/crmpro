@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, decimal, json } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, decimal, json, uniqueIndex } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -32,6 +32,7 @@ export type InsertUser = typeof users.$inferInsert;
  */
 export const appSettings = mysqlTable("app_settings", {
   id: int("id").autoincrement().primaryKey(),
+  singleton: int("singleton").notNull().default(1),
   companyName: varchar("companyName", { length: 120 }).default("Imagine Lab CRM").notNull(),
   logoUrl: varchar("logoUrl", { length: 500 }),
   timezone: varchar("timezone", { length: 60 }).default("America/Asuncion").notNull(),
@@ -118,7 +119,9 @@ export const appSettings = mysqlTable("app_settings", {
 
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => ({
+  uniqSingleton: uniqueIndex("uniq_app_settings_singleton").on(t.singleton),
+}));
 
 export type AppSettings = typeof appSettings.$inferSelect;
 export type InsertAppSettings = typeof appSettings.$inferInsert;
@@ -219,7 +222,7 @@ export type InsertCustomFieldDefinition = typeof customFieldDefinitions.$inferIn
 export const leads = mysqlTable("leads", {
   id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 200 }).notNull(),
-  phone: varchar("phone", { length: 20 }).notNull().unique(), // Prevent duplicate leads by phone
+  phone: varchar("phone", { length: 20 }).notNull(), // Unique index added below
   email: varchar("email", { length: 320 }),
   country: varchar("country", { length: 50 }).notNull(),
   // Status is deprecated but kept for migration. Use pipelineStageId instead.
@@ -237,7 +240,9 @@ export const leads = mysqlTable("leads", {
   lastContactedAt: timestamp("lastContactedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => ({
+  uniqPhone: uniqueIndex("uniq_leads_phone").on(t.phone),
+}));
 
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = typeof leads.$inferInsert;
@@ -303,7 +308,7 @@ export const campaignRecipients = mysqlTable("campaign_recipients", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, (table) => ({
   // Unique constraint: prevent duplicate recipients for same campaign+lead
-  uniqueCampaignLead: { columns: [table.campaignId, table.leadId], name: "unique_campaign_lead" },
+  uniqueCampaignLead: uniqueIndex("unique_campaign_lead").on(table.campaignId, table.leadId),
 }));
 
 export type CampaignRecipient = typeof campaignRecipients.$inferSelect;

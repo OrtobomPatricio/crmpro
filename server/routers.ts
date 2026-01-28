@@ -23,6 +23,7 @@ import { sendEmail, verifySmtpConnection } from "./_core/email";
 import { distributeConversation } from "./services/distribution";
 import { logAccess, getClientIp } from "./services/security";
 import { createBackup, restoreBackup, validateBackupFile, leadsToCSV, parseCSV, importLeadsFromCSV } from "./services/backup";
+import { getOrCreateAppSettings, updateAppSettings } from "./services/app-settings";
 
 export const appRouter = router({
 
@@ -322,33 +323,17 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("Database not available");
 
-        const existing = await db.select().from(appSettings).limit(1);
-        if (existing.length === 0) {
-          await db.insert(appSettings).values({
-            companyName: input.companyName ?? "Imagine Lab CRM",
-            logoUrl: input.logoUrl ?? null,
-            timezone: input.timezone ?? "America/Asuncion",
-            language: input.language ?? "es",
-            currency: input.currency ?? "PYG",
-            permissionsMatrix: undefined,
-            scheduling: input.scheduling ?? { slotMinutes: 15, maxPerSlot: 6, allowCustomTime: true },
-            slaConfig: input.slaConfig,
-            chatDistributionConfig: input.chatDistributionConfig,
-            salesConfig: input.salesConfig,
-          });
-        } else {
-          await db.update(appSettings).set({
-            ...(input.companyName ? { companyName: input.companyName } : {}),
-            ...(input.logoUrl !== undefined ? { logoUrl: input.logoUrl } : {}),
-            ...(input.timezone ? { timezone: input.timezone } : {}),
-            ...(input.language ? { language: input.language } : {}),
-            ...(input.currency ? { currency: input.currency } : {}),
-            ...(input.scheduling ? { scheduling: input.scheduling } : {}),
-            ...(input.slaConfig ? { slaConfig: input.slaConfig } : {}),
-            ...(input.chatDistributionConfig ? { chatDistributionConfig: input.chatDistributionConfig } : {}),
-            ...(input.salesConfig ? { salesConfig: input.salesConfig } : {}),
-          });
-        }
+        await updateAppSettings(db, {
+          companyName: input.companyName,
+          logoUrl: input.logoUrl,
+          timezone: input.timezone,
+          language: input.language,
+          currency: input.currency,
+          scheduling: input.scheduling,
+          slaConfig: input.slaConfig,
+          chatDistributionConfig: input.chatDistributionConfig,
+          salesConfig: input.salesConfig,
+        });
 
         return { success: true } as const;
       }),
@@ -362,12 +347,7 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("Database not available");
 
-        const existing = await db.select().from(appSettings).limit(1);
-        if (existing.length === 0) {
-          await db.insert(appSettings).values({ permissionsMatrix: input.permissionsMatrix as any });
-        } else {
-          await db.update(appSettings).set({ permissionsMatrix: input.permissionsMatrix as any });
-        }
+        await updateAppSettings(db, { permissionsMatrix: input.permissionsMatrix });
         return { success: true } as const;
       }),
 
@@ -382,13 +362,7 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("Database not available");
-        const existing = await db.select().from(appSettings).limit(1);
-        if (existing.length === 0) {
-          await db.insert(appSettings).values({ securityConfig: input.securityConfig });
-        } else {
-          // Merge with existing config if needed, or overwrite? Overwrite is safer for security config to avoid stale IPs.
-          await db.update(appSettings).set({ securityConfig: input.securityConfig });
-        }
+        await updateAppSettings(db, { securityConfig: input.securityConfig });
         return { success: true };
       }),
 
@@ -397,14 +371,14 @@ export const appRouter = router({
       .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("Database not available");
-        const existing = await db.select().from(appSettings).limit(1);
-        if (existing.length === 0) {
-          await db.insert(appSettings).values({ dashboardConfig: input });
-        } else {
-          // Merge with existing config
-          const current = (existing[0].dashboardConfig as Record<string, any>) || {};
-          await db.update(appSettings).set({ dashboardConfig: { ...current, ...input } });
-        }
+        // Merge with existing config
+        const currentSettings = await getOrCreateAppSettings(db);
+        const current = (currentSettings.dashboardConfig as Record<string, any>) || {};
+
+        await updateAppSettings(db, {
+          dashboardConfig: { ...current, ...input }
+        });
+
         return { success: true };
       }),
 
@@ -413,16 +387,13 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("Database not available");
-        const existing = await db.select().from(appSettings).limit(1);
+        const currentSettings = await getOrCreateAppSettings(db);
+        const current = (currentSettings.dashboardConfig as Record<string, any>) || {};
 
-        if (existing.length === 0) {
-          await db.insert(appSettings).values({ dashboardConfig: { layout: input.layout } });
-        } else {
-          const current = (existing[0].dashboardConfig as Record<string, any>) || {};
-          await db.update(appSettings).set({
-            dashboardConfig: { ...current, layout: input.layout }
-          });
-        }
+        await updateAppSettings(db, {
+          dashboardConfig: { ...current, layout: input.layout }
+        });
+
         return { success: true };
       }),
 
@@ -432,19 +403,28 @@ export const appRouter = router({
         port: z.number(),
         secure: z.boolean(),
         user: z.string(),
-        pass: z.string(),
+        pass: z.string().optional().nullable(),
         from: z.string().optional(),
       }))
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("Database not available");
 
-        const existing = await db.select().from(appSettings).limit(1);
-        if (existing.length === 0) {
-          await db.insert(appSettings).values({ smtpConfig: input });
-        } else {
-          await db.update(appSettings).set({ smtpConfig: input });
-        }
+        const currentSettings = await getOrCreateAppSettings(db);
+        const prev = (currentSettings.smtpConfig as Record<string, any>) ?? {};
+
+        const next = {
+          ...prev,
+          host: input.host,
+          port: input.port,
+          secure: input.secure,
+          user: input.user,
+          from: input.from,
+          ...(input.pass && input.pass.trim() ? { pass: input.pass.trim() } : {}), // In production we should encrypt this
+          ...(input.pass === null ? { pass: null } : {}),
+        };
+
+        await updateAppSettings(db, { smtpConfig: next });
         return { success: true };
       }),
 
@@ -465,78 +445,78 @@ export const appRouter = router({
         provider: z.enum(["forge", "s3"]),
         bucket: z.string().optional(),
         region: z.string().optional(),
-        accessKey: z.string().optional(),
-        secretKey: z.string().optional(),
+        accessKey: z.string().optional().nullable(),
+        secretKey: z.string().optional().nullable(),
         endpoint: z.string().optional(),
         publicUrl: z.string().optional(),
       }))
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("Database not available");
-        const existing = await db.select().from(appSettings).limit(1);
-        if (!existing[0]) {
-          await db.insert(appSettings).values({ storageConfig: input });
-        } else {
-          // CRITICAL: Preserve existing accessKey and secretKey if not provided
-          const existingAccessKey = existing[0]?.storageConfig?.accessKey;
-          const existingSecretKey = existing[0]?.storageConfig?.secretKey;
 
-          const finalAccessKey = input.accessKey?.trim() ? input.accessKey : (existingAccessKey || "");
-          const finalSecretKey = input.secretKey?.trim() ? input.secretKey : (existingSecretKey || "");
+        const currentSettings = await getOrCreateAppSettings(db);
+        const prev = (currentSettings.storageConfig as Record<string, any>) ?? {};
 
-          const finalConfig = { ...input, accessKey: finalAccessKey, secretKey: finalSecretKey };
+        const next = {
+          ...prev,
+          provider: input.provider,
+          bucket: input.bucket,
+          region: input.region,
+          endpoint: input.endpoint,
+          publicUrl: input.publicUrl,
+          ...(input.accessKey && input.accessKey.trim() ? { accessKey: input.accessKey.trim() } : {}),
+          ...(input.accessKey === null ? { accessKey: null } : {}),
+          ...(input.secretKey && input.secretKey.trim() ? { secretKey: input.secretKey.trim() } : {}),
+          ...(input.secretKey === null ? { secretKey: null } : {}),
+        };
 
-          await db.update(appSettings).set({ storageConfig: finalConfig });
-        }
+        await updateAppSettings(db, { storageConfig: next });
         return { success: true };
       }),
 
     updateAiConfig: permissionProcedure("settings.manage")
       .input(z.object({
         provider: z.enum(["openai", "anthropic"]),
-        apiKey: z.string().optional(),
+        apiKey: z.string().optional().nullable(),
         model: z.string(),
       }))
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("Database not available");
 
-        // CRITICAL: Preserve existing API key if not provided
-        const existing = await db.select().from(appSettings).limit(1);
-        const existingKey = existing[0]?.aiConfig?.apiKey;
-        const finalKey = input.apiKey?.trim() ? input.apiKey : (existingKey || "");
+        const currentSettings = await getOrCreateAppSettings(db);
+        const prev = (currentSettings.aiConfig as Record<string, any>) ?? {};
 
-        const finalConfig = { ...input, apiKey: finalKey };
+        const next = {
+          ...prev,
+          provider: input.provider,
+          model: input.model,
+          ...(input.apiKey && input.apiKey.trim() ? { apiKey: input.apiKey.trim() } : {}),
+          ...(input.apiKey === null ? { apiKey: null } : {}),
+        };
 
-        // In a real app we might encrypt the apiKey
-        if (!existing[0]) {
-          await db.insert(appSettings).values({ aiConfig: finalConfig });
-        } else {
-          await db.update(appSettings).set({ aiConfig: finalConfig });
-        }
+        await updateAppSettings(db, { aiConfig: next });
         return { success: true };
       }),
 
     updateMapsConfig: permissionProcedure("settings.manage")
       .input(z.object({
-        apiKey: z.string().optional(),
+        apiKey: z.string().optional().nullable(),
       }))
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("Database not available");
 
-        // CRITICAL: Preserve existing API key if not provided
-        const existing = await db.select().from(appSettings).limit(1);
-        const existingKey = existing[0]?.mapsConfig?.apiKey;
-        const finalKey = input.apiKey?.trim() ? input.apiKey : (existingKey || "");
+        const currentSettings = await getOrCreateAppSettings(db);
+        const prev = (currentSettings.mapsConfig as Record<string, any>) ?? {};
 
-        const finalConfig = { ...input, apiKey: finalKey };
+        const next = {
+          ...prev,
+          ...(input.apiKey && input.apiKey.trim() ? { apiKey: input.apiKey.trim() } : {}),
+          ...(input.apiKey === null ? { apiKey: null } : {}),
+        };
 
-        if (!existing[0]) {
-          await db.insert(appSettings).values({ mapsConfig: finalConfig });
-        } else {
-          await db.update(appSettings).set({ mapsConfig: finalConfig });
-        }
+        await updateAppSettings(db, { mapsConfig: next });
         return { success: true };
       }),
 
@@ -2638,41 +2618,7 @@ export const appRouter = router({
         }));
       }),
 
-    revokeSession: permissionProcedure("settings.manage")
-      .input(z.object({ sessionId: z.number() }))
-      .mutation(async ({ input, ctx }) => {
-        const db = await getDb();
-        if (!db) throw new Error("Database not available");
 
-        await db.delete(sessions)
-          .where(and(
-            eq(sessions.id, input.sessionId),
-            eq(sessions.userId, (ctx.user as any).id)
-          ));
-
-        return { success: true } as const;
-      }),
-    revokeSession: permissionProcedure("settings.manage")
-      .input(z.object({ sessionId: z.number() }))
-      .mutation(async ({ input, ctx }) => {
-        const db = await getDb();
-        if (!db) throw new Error("Database not available");
-
-        // Delete the session
-        await db.delete(sessions).where(eq(sessions.id, input.sessionId));
-
-        // Log the action
-        await logAccess({
-          userId: ctx.user?.id,
-          action: "revoke_session",
-          entityType: "session",
-          entityId: input.sessionId,
-          ipAddress: getClientIp(ctx.req),
-          userAgent: ctx.req.headers['user-agent'],
-        });
-
-        return { success: true };
-      }),
   }),
 
   // Backup and data management router

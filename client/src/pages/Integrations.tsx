@@ -296,8 +296,8 @@ function SmtpSettings() {
             const email = prompt("Email de prueba:");
             if (email) testSmtp.mutate({ email });
           }}>Probar</Button>
-          <Button onClick={handleSave} disabled={updateSmtp.isPending}>
-            {updateSmtp.isPending ? "Guardando..." : "Guardar"}
+          <Button onClick={handleSave} isLoading={updateSmtp.isPending} disabled={updateSmtp.isPending}>
+            Guardar
           </Button>
         </div>
       </CardContent>
@@ -306,12 +306,28 @@ function SmtpSettings() {
 }
 
 function StorageSettings() {
+  const query = trpc.settings.get.useQuery();
   const updateStorage = trpc.settings.updateStorageConfig.useMutation({
     onSuccess: () => toast.success("Storage config guardado")
   });
   const [form, setForm] = useState({
     provider: "s3" as "s3" | "forge", bucket: "", region: "", accessKey: "", secretKey: "", endpoint: "", publicUrl: ""
   });
+
+  useEffect(() => {
+    if (query.data?.storageConfig) {
+      const config = query.data.storageConfig as any;
+      setForm({
+        provider: config.provider || "s3",
+        bucket: config.bucket || "",
+        region: config.region || "",
+        accessKey: "", // Never hydrate secrets
+        secretKey: "", // Never hydrate secrets
+        endpoint: config.endpoint || "",
+        publicUrl: config.publicUrl || ""
+      });
+    }
+  }, [query.data]);
 
   return (
     <Card>
@@ -338,7 +354,7 @@ function StorageSettings() {
             <div className="grid gap-2"><Label>Secret Key</Label><Input type="password" value={form.secretKey} onChange={e => setForm(p => ({ ...p, secretKey: e.target.value }))} /></div>
           </>
         )}
-        <Button onClick={() => updateStorage.mutate(form)} className="w-full">Guardar</Button>
+        <Button onClick={() => updateStorage.mutate(form)} className="w-full" isLoading={updateStorage.isPending} disabled={updateStorage.isPending}>Guardar</Button>
       </CardContent>
     </Card>
   );
@@ -405,8 +421,8 @@ function AiSettings() {
           <Label>Modelo (Default)</Label>
           <Input value={form.model} onChange={e => setForm(p => ({ ...p, model: e.target.value }))} />
         </div>
-        <Button onClick={handleSave} className="w-full" disabled={updateAi.isPending}>
-          {updateAi.isPending ? "Guardando..." : "Guardar"}
+        <Button onClick={handleSave} className="w-full" isLoading={updateAi.isPending} disabled={updateAi.isPending}>
+          Guardar
         </Button>
       </CardContent>
     </Card>
@@ -451,8 +467,8 @@ function MapsSettings() {
             placeholder={hasExistingKey ? "Guardado ••••" : "AIza..."}
           />
         </div>
-        <Button onClick={handleSave} className="w-full" disabled={updateMaps.isPending}>
-          {updateMaps.isPending ? "Guardando..." : "Guardar"}
+        <Button onClick={handleSave} className="w-full" isLoading={updateMaps.isPending} disabled={updateMaps.isPending}>
+          Guardar
         </Button>
       </CardContent>
     </Card>

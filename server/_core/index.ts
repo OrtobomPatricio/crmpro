@@ -130,15 +130,18 @@ async function startServer() {
 
   // Configure body parser with larger size limit for file uploads
   // Also keep raw body for WhatsApp webhook signature verification
+  // Configure body parser with stricter size limit for security
+  // Uploads are handled by multer (multipart), so they are not affected by this limit.
+  // Keep raw body for WhatsApp webhook checking.
   app.use(
     express.json({
-      limit: "50mb",
+      limit: "50kb",
       verify: (req: any, _res, buf) => {
         req.rawBody = buf;
       },
     })
   );
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  app.use(express.urlencoded({ limit: "50kb", extended: true }));
 
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
@@ -263,7 +266,10 @@ const run = async () => {
       console.log("[Startup] Database migration completed.");
     } catch (e) {
       console.error("[Startup] CRITICAL: Auto-migration failed:", e);
-      // We continue to start server even if migration fails, to allow debugging
+      if (process.env.NODE_ENV === "production") {
+        console.error("[Startup] Production migration failed. Exiting to prevent data corruption.");
+        process.exit(1);
+      }
     }
   } else {
     console.log("[Startup] Skipping migrations (RUN_MIGRATIONS != 1)");
