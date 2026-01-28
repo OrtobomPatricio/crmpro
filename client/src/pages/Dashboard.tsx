@@ -37,6 +37,9 @@ import {
     FileText,
     ArrowUpRight,
     X,
+    Settings,
+    Database,
+    Workflow,
 } from "lucide-react";
 
 interface WidgetDefinition {
@@ -97,7 +100,8 @@ function DashboardContent() {
     // Load config from backend
     useEffect(() => {
         if (settings?.dashboardConfig) {
-            setWidgetConfig(prev => ({ ...prev, ...settings.dashboardConfig }));
+            const config = settings.dashboardConfig as unknown as Record<string, boolean>;
+            setWidgetConfig(prev => ({ ...prev, ...config }));
         }
     }, [settings?.dashboardConfig]);
 
@@ -116,6 +120,15 @@ function DashboardContent() {
             iconColor: "icon-container-blue",
             hoverColor: "hover:border-blue-500/50",
             path: "/leads",
+        },
+        {
+            key: "kanban",
+            icon: LayoutGrid,
+            label: "Kanban Board",
+            description: "Visualiza tu pipeline de ventas",
+            iconColor: "icon-container-orange",
+            hoverColor: "hover:border-orange-500/50",
+            path: "/kanban",
         },
         {
             key: "campaigns",
@@ -143,6 +156,69 @@ function DashboardContent() {
             iconColor: "icon-container-blue",
             hoverColor: "hover:border-blue-500/50",
             path: "/scheduling",
+        },
+        {
+            key: "monitoring",
+            icon: Activity,
+            label: "Monitoreo en Vivo",
+            description: "Estado de cuentas y actividad",
+            iconColor: "icon-container-red",
+            hoverColor: "hover:border-red-500/50",
+            path: "/monitoring",
+        },
+        {
+            key: "analytics",
+            icon: BarChart3,
+            label: "Analytics",
+            description: "Métricas y rendimiento",
+            iconColor: "icon-container-indigo",
+            hoverColor: "hover:border-indigo-500/50",
+            path: "/analytics",
+        },
+        {
+            key: "reports",
+            icon: FileText,
+            label: "Reportes",
+            description: "Informes detallados exportables",
+            iconColor: "icon-container-gray",
+            hoverColor: "hover:border-gray-500/50",
+            path: "/reports",
+        },
+        {
+            key: "automations",
+            icon: Zap,
+            label: "Automatizaciones",
+            description: "Flujos de trabajo automáticos",
+            iconColor: "icon-container-yellow",
+            hoverColor: "hover:border-yellow-500/50",
+            path: "/automations",
+        },
+        {
+            key: "integrations",
+            icon: Workflow,
+            label: "Integraciones",
+            description: "Conecta con herramientas externas",
+            iconColor: "icon-container-pink",
+            hoverColor: "hover:border-pink-500/50",
+            path: "/integrations",
+        },
+        {
+            key: "backups",
+            icon: Database,
+            label: "Backups",
+            description: "Copias de seguridad del sistema",
+            iconColor: "icon-container-cyan",
+            hoverColor: "hover:border-cyan-500/50",
+            path: "/backup",
+        },
+        {
+            key: "settings",
+            icon: Settings,
+            label: "Configuración",
+            description: "Permisos, roles y ajustes",
+            iconColor: "icon-container-slate",
+            hoverColor: "hover:border-slate-500/50",
+            path: "/settings",
         },
     ];
 

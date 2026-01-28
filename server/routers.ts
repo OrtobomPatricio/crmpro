@@ -2691,6 +2691,44 @@ export const appRouter = router({
 
   // Dashboard Widgets Data
   dashboard: router({
+    getStats: permissionProcedure("dashboard.view")
+      .query(async () => {
+        const db = await getDb();
+        if (!db) return { totalLeads: 0, activeNumbers: 0, messagesToday: 0, conversionRate: 0 };
+
+        // 1. Total Leads
+        const leadsCount = await db.select({ count: sql<number>`count(*)` }).from(leads);
+        const totalLeads = Number(leadsCount[0]?.count ?? 0);
+
+        // 2. Active WhatsApp Numbers
+        const numbersCount = await db.select({ count: sql<number>`count(*)` }).from(whatsappConnections).where(eq(whatsappConnections.isConnected, true));
+        const activeNumbers = Number(numbersCount[0]?.count ?? 0);
+
+        // 3. Messages Today (Outbound)
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const messagesCount = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(chatMessages)
+          .where(and(
+            eq(chatMessages.direction, "outbound"),
+            gte(chatMessages.createdAt, startOfDay)
+          ));
+        const messagesToday = Number(messagesCount[0]?.count ?? 0);
+
+        // 4. Conversion Rate (Won / Total)
+        const wonCount = await db.select({ count: sql<number>`count(*)` }).from(leads).where(eq(leads.status, "won"));
+        const won = Number(wonCount[0]?.count ?? 0);
+        const conversionRate = totalLeads > 0 ? Math.round((won / totalLeads) * 100) : 0;
+
+        return {
+          totalLeads,
+          activeNumbers,
+          messagesToday,
+          conversionRate
+        };
+      }),
+
     getPipelineFunnel: permissionProcedure("dashboard.view")
       .query(async () => {
         const db = await getDb();
