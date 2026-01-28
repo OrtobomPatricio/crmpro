@@ -47,43 +47,43 @@ import FacebookSettings from "@/components/FacebookSettings";
 
 export default function Integrations() {
   return (
-      <div className="space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Integraciones</h1>
-          <p className="text-muted-foreground">
-            Conectá tus herramientas favoritas y configurá los servicios externos.
-          </p>
-        </div>
-
-        <Tabs defaultValue="messaging" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="messaging">Mensajería</TabsTrigger>
-            <TabsTrigger value="automation">Automatización</TabsTrigger>
-            <TabsTrigger value="system">Sistema & IA</TabsTrigger>
-          </TabsList>
-
-          {/* MESSAGING TAB */}
-          <TabsContent value="messaging" className="space-y-4 mt-4">
-            <WhatsAppList />
-            <FacebookSettings />
-            <SmtpSettings />
-          </TabsContent>
-
-          {/* AUTOMATION TAB */}
-          <TabsContent value="automation" className="space-y-4 mt-4">
-            <WebhookIntegrations />
-          </TabsContent>
-
-          {/* SYSTEM TAB */}
-          <TabsContent value="system" className="space-y-4 mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <AiSettings />
-              <StorageSettings />
-              <MapsSettings />
-            </div>
-          </TabsContent>
-        </Tabs>
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Integraciones</h1>
+        <p className="text-muted-foreground">
+          Conectá tus herramientas favoritas y configurá los servicios externos.
+        </p>
       </div>
+
+      <Tabs defaultValue="messaging" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="messaging">Mensajería</TabsTrigger>
+          <TabsTrigger value="automation">Automatización</TabsTrigger>
+          <TabsTrigger value="system">Sistema & IA</TabsTrigger>
+        </TabsList>
+
+        {/* MESSAGING TAB */}
+        <TabsContent value="messaging" className="space-y-4 mt-4">
+          <WhatsAppList />
+          <FacebookSettings />
+          <SmtpSettings />
+        </TabsContent>
+
+        {/* AUTOMATION TAB */}
+        <TabsContent value="automation" className="space-y-4 mt-4">
+          <WebhookIntegrations />
+        </TabsContent>
+
+        {/* SYSTEM TAB */}
+        <TabsContent value="system" className="space-y-4 mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <AiSettings />
+            <StorageSettings />
+            <MapsSettings />
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
 
@@ -217,10 +217,41 @@ function SmtpSettings() {
   });
 
   const [form, setForm] = useState({ host: "", port: 587, secure: false, user: "", pass: "", from: "" });
+  const [hasExistingPassword, setHasExistingPassword] = useState(false);
 
   useEffect(() => {
-    if (query.data?.smtpConfig) setForm(query.data.smtpConfig as any);
+    if (query.data?.smtpConfig) {
+      const config = query.data.smtpConfig as any;
+      // CRITICAL: Don't hydrate password field if it's masked/metadata
+      setForm({
+        host: config.host || "",
+        port: config.port || 587,
+        secure: config.secure || false,
+        user: config.user || "",
+        pass: "", // Never hydrate password
+        from: config.from || ""
+      });
+      setHasExistingPassword(!!config.hasPassword);
+    }
   }, [query.data]);
+
+  const handleSave = () => {
+    // Only include password if user typed a new one
+    const payload: any = {
+      host: form.host,
+      port: form.port,
+      secure: form.secure,
+      user: form.user,
+      from: form.from
+    };
+
+    // Only send password if it was changed
+    if (form.pass.trim()) {
+      payload.pass = form.pass;
+    }
+
+    updateSmtp.mutate(payload);
+  };
 
   return (
     <Card>
@@ -244,7 +275,12 @@ function SmtpSettings() {
           </div>
           <div className="grid gap-2">
             <Label>Password</Label>
-            <Input type="password" value={form.pass} onChange={e => setForm(p => ({ ...p, pass: e.target.value }))} />
+            <Input
+              type="password"
+              value={form.pass}
+              onChange={e => setForm(p => ({ ...p, pass: e.target.value }))}
+              placeholder={hasExistingPassword ? "Guardado ••••" : "Password SMTP"}
+            />
           </div>
           <div className="grid gap-2">
             <Label>From</Label>
@@ -260,7 +296,9 @@ function SmtpSettings() {
             const email = prompt("Email de prueba:");
             if (email) testSmtp.mutate({ email });
           }}>Probar</Button>
-          <Button onClick={() => updateSmtp.mutate(form)} disabled={updateSmtp.isPending}>Guardar</Button>
+          <Button onClick={handleSave} disabled={updateSmtp.isPending}>
+            {updateSmtp.isPending ? "Guardando..." : "Guardar"}
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -307,8 +345,36 @@ function StorageSettings() {
 }
 
 function AiSettings() {
+  const query = trpc.settings.get.useQuery();
   const updateAi = trpc.settings.updateAiConfig.useMutation({ onSuccess: () => toast.success("AI config guardado") });
   const [form, setForm] = useState({ provider: "openai" as "openai" | "anthropic", apiKey: "", model: "gpt-4-turbo" });
+  const [hasExistingKey, setHasExistingKey] = useState(false);
+
+  useEffect(() => {
+    if (query.data?.aiConfig) {
+      const config = query.data.aiConfig as any;
+      setForm({
+        provider: config.provider || "openai",
+        apiKey: "", // Never hydrate API key
+        model: config.model || "gpt-4-turbo"
+      });
+      setHasExistingKey(!!config.hasApiKey);
+    }
+  }, [query.data]);
+
+  const handleSave = () => {
+    const payload: any = {
+      provider: form.provider,
+      model: form.model
+    };
+
+    // Only send API key if user typed a new one
+    if (form.apiKey.trim()) {
+      payload.apiKey = form.apiKey;
+    }
+
+    updateAi.mutate(payload);
+  };
 
   return (
     <Card>
@@ -326,17 +392,49 @@ function AiSettings() {
             </SelectContent>
           </Select>
         </div>
-        <div className="grid gap-2"><Label>API Key</Label><Input type="password" value={form.apiKey} onChange={e => setForm(p => ({ ...p, apiKey: e.target.value }))} /></div>
-        <div className="grid gap-2"><Label>Modelo (Default)</Label><Input value={form.model} onChange={e => setForm(p => ({ ...p, model: e.target.value }))} /></div>
-        <Button onClick={() => updateAi.mutate(form)} className="w-full">Guardar</Button>
+        <div className="grid gap-2">
+          <Label>API Key</Label>
+          <Input
+            type="password"
+            value={form.apiKey}
+            onChange={e => setForm(p => ({ ...p, apiKey: e.target.value }))}
+            placeholder={hasExistingKey ? "Guardado ••••" : "sk-..."}
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label>Modelo (Default)</Label>
+          <Input value={form.model} onChange={e => setForm(p => ({ ...p, model: e.target.value }))} />
+        </div>
+        <Button onClick={handleSave} className="w-full" disabled={updateAi.isPending}>
+          {updateAi.isPending ? "Guardando..." : "Guardar"}
+        </Button>
       </CardContent>
     </Card>
   );
 }
 
 function MapsSettings() {
+  const query = trpc.settings.get.useQuery();
   const updateMaps = trpc.settings.updateMapsConfig.useMutation({ onSuccess: () => toast.success("Maps config guardado") });
   const [apiKey, setApiKey] = useState("");
+  const [hasExistingKey, setHasExistingKey] = useState(false);
+
+  useEffect(() => {
+    if (query.data?.mapsConfig) {
+      const config = query.data.mapsConfig as any;
+      setApiKey(""); // Never hydrate API key
+      setHasExistingKey(!!config.hasApiKey);
+    }
+  }, [query.data]);
+
+  const handleSave = () => {
+    // Only send if user typed a new key
+    if (apiKey.trim()) {
+      updateMaps.mutate({ apiKey });
+    } else {
+      updateMaps.mutate({});
+    }
+  };
 
   return (
     <Card>
@@ -346,9 +444,16 @@ function MapsSettings() {
       <CardContent className="space-y-4">
         <div className="grid gap-2">
           <Label>API Key</Label>
-          <Input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="AIza..." />
+          <Input
+            type="password"
+            value={apiKey}
+            onChange={e => setApiKey(e.target.value)}
+            placeholder={hasExistingKey ? "Guardado ••••" : "AIza..."}
+          />
         </div>
-        <Button onClick={() => updateMaps.mutate({ apiKey })} className="w-full">Guardar</Button>
+        <Button onClick={handleSave} className="w-full" disabled={updateMaps.isPending}>
+          {updateMaps.isPending ? "Guardando..." : "Guardar"}
+        </Button>
       </CardContent>
     </Card>
   );
