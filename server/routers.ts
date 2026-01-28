@@ -477,9 +477,7 @@ export const appRouter = router({
         if (!existing[0]) {
           await db.insert(appSettings).values({ storageConfig: input });
         } else {
-
           // CRITICAL: Preserve existing accessKey and secretKey if not provided
-          const existing = await db.select().from(appSettings).limit(1);
           const existingAccessKey = existing[0]?.storageConfig?.accessKey;
           const existingSecretKey = existing[0]?.storageConfig?.secretKey;
 
@@ -488,13 +486,10 @@ export const appRouter = router({
 
           const finalConfig = { ...input, accessKey: finalAccessKey, secretKey: finalSecretKey };
 
-          if (!existing[0]) {
-            await db.insert(appSettings).values({ storageConfig: finalConfig });
-          } else {
-            await db.update(appSettings).set({ storageConfig: finalConfig });
-          }
-          return { success: true };
-        }),
+          await db.update(appSettings).set({ storageConfig: finalConfig });
+        }
+        return { success: true };
+      }),
 
     updateAiConfig: permissionProcedure("settings.manage")
       .input(z.object({
