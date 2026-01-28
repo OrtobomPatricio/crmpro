@@ -163,3 +163,31 @@ export async function markCloudMessageAsRead(opts: {
     throw new Error(msg);
   }
 }
+
+export async function fetchCloudTemplates(opts: {
+  accessToken: string;
+  businessAccountId: string;
+}): Promise<any[]> {
+  const version = ENV.whatsappGraphVersion || "v19.0";
+  const base = ENV.whatsappGraphBaseUrl || "https://graph.facebook.com";
+  // The endpoint to list templates is /<WABA_ID>/message_templates
+  const endpoint = `${base}/${version}/${opts.businessAccountId}/message_templates?limit=100`;
+
+  const res = await fetch(endpoint, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${opts.accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({} as any));
+    const msg = (data as any)?.error?.message || `WhatsApp API error ${res.status}`;
+    console.warn("fetchCloudTemplates error:", msg); // Warn instead of throw to avoid crashing UI completely
+    throw new Error(msg);
+  }
+
+  const data = await res.json();
+  return data.data || [];
+}

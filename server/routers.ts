@@ -11,7 +11,7 @@ import { leads, whatsappNumbers, campaigns, campaignRecipients, messages, activi
 
 import { assertSafeOutboundUrl } from "./_core/urlSafety";
 import { encryptSecret, decryptSecret, maskSecret } from "./_core/crypto";
-import { sendCloudMessage } from "./whatsapp/cloud";
+import { sendCloudMessage, fetchCloudTemplates } from "./whatsapp/cloud";
 import { dispatchIntegrationEvent } from "./_core/integrationDispatch";
 import { eq, desc, sql, and, count, asc, inArray, gte } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -99,7 +99,30 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) return [];
         return await db.select().from(whatsappConnections);
-      })
+      }),
+
+    listTemplates: permissionProcedure("campaigns.view").query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      // Get the first active connection with a businessAccountId
+      const connection = await db.select().from(whatsappConnections)
+        .where(and(eq(whatsappConnections.isConnected, true)))
+        .limit(1);
+
+      if (!connection[0] || !connection[0].accessToken || !connection[0].businessAccountId) {
+        return [];
+      }
+
+      try {
+        return await fetchCloudTemplates({
+          accessToken: connection[0].accessToken,
+          businessAccountId: connection[0].businessAccountId
+        });
+      } catch (e) {
+        console.error("Failed to sync templates", e);
+        throw new Error("Failed to sync with Meta");
+      }
+    }),
   }),
 
   auth: router({
