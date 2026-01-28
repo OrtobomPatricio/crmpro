@@ -206,9 +206,6 @@ export default function Login() {
                 </Button>
               </form>
 
-              <div className="pt-2 text-center">
-                <DebugDialog />
-              </div>
 
             </CardContent>
           </Card>
@@ -222,57 +219,6 @@ export default function Login() {
           </p>
         </div>
       </div>
-    </div>
-  );
-}
-
-function DebugDialog() {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const runDiagnostics = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/public-debug");
-      if (!res.ok) {
-        throw new Error(`Error HTTP: ${res.status}`);
-      }
-      const json = await res.json();
-      setData(json);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="flex justify-center">
-      <Button
-        variant="link"
-        size="sm"
-        className="text-xs text-muted-foreground"
-        onClick={() => {
-          const win = window.open("", "Diagnóstico", "width=600,height=800");
-          if (win) {
-            win.document.write("<h1>Cargando diagnóstico...</h1>");
-            fetch("/api/public-debug")
-              .then(r => r.json())
-              .then(d => {
-                win.document.body.innerHTML = `<pre style='background:#eee; padding:10px; font-family:monospace'>${JSON.stringify(d, null, 2)}</pre>`;
-              })
-              .catch(e => {
-                win.document.body.innerHTML = `<h1 style='color:red'>Error de conexión al backend</h1><p>El servidor no responde en /api/public-debug. Causa probable: Código no actualizado.</p><pre>${String(e)}</pre>`;
-              });
-          } else {
-            alert("Por favor habilita las ventanas emergentes para ver el diagnóstico");
-          }
-        }}
-      >
-        🔍 Ejecutar Diagnóstico de Sistema
-      </Button>
     </div>
   );
 }

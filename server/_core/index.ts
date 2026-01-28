@@ -42,8 +42,11 @@ async function startServer() {
   const app = express();
   app.disable("x-powered-by");
 
-  // If running behind Nginx/Cloudflare/Hostinger proxy, trust X-Forwarded-* headers
-  app.set("trust proxy", 1);
+  // Only trust proxy if explicitly enabled (prevents IP spoofing on rate limit)
+  if (process.env.TRUST_PROXY === "1") {
+    app.set("trust proxy", 1);
+    console.log("✅ Trust proxy enabled (X-Forwarded-* headers will be used)");
+  }
 
   // Basic security headers (without extra deps)
   app.use((_req, res, next) => {
@@ -139,10 +142,15 @@ async function startServer() {
   // WhatsApp Cloud API webhook
   registerWhatsAppWebhookRoutes(app);
 
-  // --- FILE UPLOAD ENDPOINT ---
+  // --- FILE UPLOAD ENDPOINT (SECURED) ---
+  // Production-ready path: dist/public in prod, client/public in dev
+  const staticRoot = process.env.NODE_ENV === "production"
+    ? path.join(process.cwd(), "dist/public")
+    : path.join(process.cwd(), "client/public");
+
   const storage = multer.diskStorage({
     destination: function (_req, _file, cb) {
-      const uploadDir = path.join(process.cwd(), "client/public/uploads");
+      const uploadDir = path.join(staticRoot, "uploads");
       if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
       }
@@ -154,9 +162,32 @@ async function startServer() {
     }
   });
 
-  const upload = multer({ storage: storage });
+  const upload = multer({
+    storage,
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB max
+      files: 5 // Max 5 files per request
+    },
+    fileFilter: (_req, file, cb) => {
+      // Only allow images and videos
+      const allowed = file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/');
+      if (!allowed) {
+        return cb(new Error('Invalid file type. Only images and videos allowed.'));
+      }
+      cb(null, true);
+    }
+  });
 
-  app.post('/api/upload', upload.array('files'), (req, res) => {
+  // AUTH REQUIRED: Only authenticated users can upload
+  app.post('/api/upload', async (req, res, next) => {
+    const ctx = await createContext({ req, res } as any);
+    if (!ctx.user) {
+      return res.status(401).json({ error: 'Unauthorized. Please log in.' });
+    }
+    // Optional: Check for specific permission (e.g., settings.manage)
+    // For now, any authenticated user can upload
+    next();
+  }, upload.array('files'), (req, res) => {
     const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) {
       return res.status(400).json({ error: 'No files uploaded' });

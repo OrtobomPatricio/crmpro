@@ -2,6 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router, adminProcedure, permissionProcedure } from "./_core/trpc";
+import { sanitizeAppSettings, validateCustomRole } from "./_core/security-helpers";
 import { z } from "zod";
 import { getDb } from "./db";
 import { leads, whatsappNumbers, campaigns, campaignRecipients, messages, activityLogs, users, integrations, appointments, appointmentReasons, conversations, chatMessages, whatsappNumbers as wn, whatsappConnections, appSettings, workflows, reminderTemplates, pipelines, pipelineStages, customFieldDefinitions, templates, accessLogs, sessions, goals, achievements, internalMessages } from "../drizzle/schema";
@@ -266,10 +267,10 @@ export const appRouter = router({
           scheduling: { slotMinutes: 15, maxPerSlot: 6, allowCustomTime: true },
         });
         const seeded = await db.select().from(appSettings).limit(1);
-        return seeded[0] ?? null;
+        return sanitizeAppSettings(seeded[0]);
       }
 
-      return rows[0] ?? null;
+      return sanitizeAppSettings(rows[0]);
     }),
 
     getScheduling: permissionProcedure("scheduling.view") // or public/protected depending on need
@@ -583,6 +584,17 @@ export const appRouter = router({
         }
 
         const value = input.customRole ? input.customRole.trim() : null;
+
+        // Validate customRole (blocks reserved roles + checks matrix)
+        if (value) {
+          const settings = await db.select().from(appSettings).limit(1);
+          const matrix = settings[0]?.permissionsMatrix ?? {};
+          const validation = validateCustomRole(value, matrix);
+          if (!validation.valid) {
+            throw new Error(validation.error);
+          }
+        }
+
         await db.update(users).set({ customRole: value }).where(eq(users.id, input.userId));
         return { success: true } as const;
       }),
