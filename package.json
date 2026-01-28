@@ -13,6 +13,8 @@
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node dist/migrate.js",
+    "bootstrap:admin": "tsx server/scripts/bootstrap-admin.ts",
+    "bootstrap:admin:prod": "node dist/bootstrap-admin.js",
     "set-owner": "tsx server/scripts/set-owner.ts"
   },
   "dependencies": {

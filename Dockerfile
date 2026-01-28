@@ -37,6 +37,7 @@ ENV VITE_OAUTH_PORTAL_URL=$VITE_OAUTH_PORTAL_URL \
 RUN pnpm exec vite build --logLevel error
 RUN pnpm exec esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/index.js
 RUN pnpm exec esbuild server/scripts/migrate.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/migrate.js
+RUN pnpm exec esbuild server/scripts/bootstrap-admin.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/bootstrap-admin.js
 
 # Prune for production
 RUN pnpm prune --prod
