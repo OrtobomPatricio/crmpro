@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from "react";
-import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -175,7 +174,6 @@ export default function Scheduling() {
   };
 
   return (
-    <DashboardLayout>
       <div className="p-6 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -464,7 +462,6 @@ export default function Scheduling() {
           </DialogContent>
         </Dialog>
       </div>
-    </DashboardLayout>
   );
 }
 

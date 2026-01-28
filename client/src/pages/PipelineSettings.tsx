@@ -1,5 +1,4 @@
 import { useState } from "react";
-import DashboardLayout from "@/components/DashboardLayout";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,14 +41,11 @@ export default function PipelineSettings() {
 
     if (isLoading) {
         return (
-            <DashboardLayout>
                 <div className="flex h-full items-center justify-center">Cargando...</div>
-            </DashboardLayout>
         );
     }
 
     return (
-        <DashboardLayout>
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <div>
@@ -134,6 +130,5 @@ export default function PipelineSettings() {
                     </Card>
                 </div>
             </div>
-        </DashboardLayout>
     );
 }

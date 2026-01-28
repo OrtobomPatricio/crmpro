@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import DashboardLayout from "@/components/DashboardLayout";
 import {
   Card,
   CardContent,
@@ -48,7 +47,6 @@ import FacebookSettings from "@/components/FacebookSettings";
 
 export default function Integrations() {
   return (
-    <DashboardLayout>
       <div className="space-y-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Integraciones</h1>
@@ -86,7 +84,6 @@ export default function Integrations() {
           </TabsContent>
         </Tabs>
       </div>
-    </DashboardLayout>
   );
 }
 

@@ -1,5 +1,4 @@
 
-import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -76,7 +75,6 @@ export default function Templates() {
     };
 
     return (
-        <DashboardLayout>
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <div>
@@ -166,6 +164,5 @@ export default function Templates() {
                     )}
                 </div>
             </div>
-        </DashboardLayout>
     );
 }

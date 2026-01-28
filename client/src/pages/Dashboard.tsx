@@ -1,5 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
-import DashboardLayout from "@/components/DashboardLayout";
+// import DashboardLayout from "@/components/DashboardLayout"; // REMOVED
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -63,11 +63,7 @@ const WIDGET_DEFINITIONS: WidgetDefinition[] = [
 const CATEGORIES = ['Stats', 'Analytics', 'Operacional', 'Navegación'] as const;
 
 export default function Dashboard() {
-    return (
-        <DashboardLayout>
-            <DashboardContent />
-        </DashboardLayout>
-    );
+    return <DashboardContent />;
 }
 
 function DashboardContent() {

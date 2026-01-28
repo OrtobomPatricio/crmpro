@@ -1,4 +1,3 @@
-import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -135,7 +134,6 @@ export default function Backup() {
     };
 
     return (
-        <DashboardLayout>
             <div className="space-y-6">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">Backups e Importación</h1>
@@ -302,6 +300,5 @@ export default function Backup() {
                     </CardContent>
                 </Card>
             </div>
-        </DashboardLayout>
     );
 }

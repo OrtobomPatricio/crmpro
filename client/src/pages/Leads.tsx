@@ -1,5 +1,4 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import DashboardLayout from "@/components/DashboardLayout";
 import { AMERICAS_COUNTRIES } from "@/_core/data/americasCountries";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -95,9 +94,7 @@ const countries = AMERICAS_COUNTRIES.map((c) => ({ value: c.value, label: c.labe
 
 export default function Leads() {
   return (
-    <DashboardLayout>
       <LeadsContent />
-    </DashboardLayout>
   );
 }
 

@@ -1,5 +1,4 @@
 
-import DashboardLayout from "@/components/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -91,7 +90,6 @@ export default function Campaigns() {
   const completed = campaigns?.filter(c => c.status === 'completed').length || 0;
 
   return (
-    <DashboardLayout>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
@@ -214,6 +212,5 @@ export default function Campaigns() {
           </CardContent>
         </Card>
       </div>
-    </DashboardLayout>
   );
 }

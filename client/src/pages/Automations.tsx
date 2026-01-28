@@ -1,5 +1,4 @@
 
-import DashboardLayout from "@/components/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -78,7 +77,6 @@ export default function Automations() {
     };
 
     return (
-        <DashboardLayout>
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <div>
@@ -175,6 +173,5 @@ export default function Automations() {
                     </CardContent>
                 </Card>
             </div>
-        </DashboardLayout>
     );
 }

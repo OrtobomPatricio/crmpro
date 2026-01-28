@@ -1,4 +1,3 @@
-import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
 import { TrendingUp, BarChart3, Clock } from "lucide-react";
@@ -55,7 +54,6 @@ export default function Reports() {
   const { data: stats } = trpc.dashboard.getStats.useQuery();
 
   return (
-    <DashboardLayout>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
@@ -264,6 +262,5 @@ export default function Reports() {
         </Card>
       </div>
     </div>
-    </DashboardLayout>
   );
 }

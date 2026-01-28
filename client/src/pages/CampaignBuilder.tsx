@@ -1,5 +1,4 @@
 
-import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -112,7 +111,6 @@ export default function CampaignBuilder() {
     const allStages = pipelines?.flatMap(p => p.stages) || [];
 
     return (
-        <DashboardLayout>
             <div className="max-w-4xl mx-auto space-y-8">
                 {/* Header */}
                 <div>
@@ -327,6 +325,5 @@ export default function CampaignBuilder() {
                     </CardFooter>
                 </Card>
             </div>
-        </DashboardLayout>
     );
 }

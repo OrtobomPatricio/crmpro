@@ -24,6 +24,7 @@ import Backup from "./pages/Backup";
 import Login from "./pages/Login";
 import SetupAccount from "./pages/SetupAccount";
 import { useAuth } from "./_core/hooks/useAuth";
+import DashboardLayout from "@/components/DashboardLayout";
 
 function Router() {
   const { isAuthenticated, loading } = useAuth();
@@ -46,27 +47,29 @@ function Router() {
   }
 
   return (
-    <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/leads" component={Leads} />
-      <Route path="/kanban" component={Kanban} />
-      <Route path="/analytics" component={Analytics} />
-      <Route path="/monitoring" component={Monitoring} />
-      <Route path="/campaigns" component={Campaigns} />
-      <Route path="/campaigns/new" component={CampaignBuilder} />
-      <Route path="/templates" component={Templates} />
-      <Route path="/reports" component={Reports} />
-      <Route path="/integrations" component={Integrations} />
-      <Route path="/settings" component={Settings} />
-      <Route path="/settings/pipelines" component={PipelineSettings} />
-      <Route path="/automations" component={Automations} />
-      <Route path="/automations/new" component={AutomationBuilder} />
-      <Route path="/scheduling" component={Scheduling} />
-      <Route path="/chat" component={Chat} />
-      <Route path="/backup" component={Backup} />
-      <Route path="/404" component={NotFound} />
-      <Route component={NotFound} />
-    </Switch>
+    <DashboardLayout>
+      <Switch>
+        <Route path="/" component={Dashboard} />
+        <Route path="/leads" component={Leads} />
+        <Route path="/kanban" component={Kanban} />
+        <Route path="/analytics" component={Analytics} />
+        <Route path="/monitoring" component={Monitoring} />
+        <Route path="/campaigns" component={Campaigns} />
+        <Route path="/campaigns/new" component={CampaignBuilder} />
+        <Route path="/templates" component={Templates} />
+        <Route path="/reports" component={Reports} />
+        <Route path="/integrations" component={Integrations} />
+        <Route path="/settings" component={Settings} />
+        <Route path="/settings/pipelines" component={PipelineSettings} />
+        <Route path="/automations" component={Automations} />
+        <Route path="/automations/new" component={AutomationBuilder} />
+        <Route path="/scheduling" component={Scheduling} />
+        <Route path="/chat" component={Chat} />
+        <Route path="/backup" component={Backup} />
+        <Route path="/404" component={NotFound} />
+        <Route component={NotFound} />
+      </Switch>
+    </DashboardLayout>
   );
 }
 

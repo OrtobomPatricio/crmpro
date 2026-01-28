@@ -1,5 +1,4 @@
 
-import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -107,7 +106,6 @@ export default function AutomationBuilder() {
     };
 
     return (
-        <DashboardLayout>
             <div className="max-w-4xl mx-auto space-y-8">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">Nueva Automatización</h1>
@@ -291,6 +289,5 @@ export default function AutomationBuilder() {
                     </CardFooter>
                 </Card>
             </div>
-        </DashboardLayout>
     );
 }
