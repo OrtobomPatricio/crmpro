@@ -2626,27 +2626,38 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) return [];
 
-        // Get all non-expired sessions
-        const now = new Date();
-        const activeSessions = await db.select()
+        if (!db) throw new Error("Database not available");
+
+        const rows = await db
+          .select()
           .from(sessions)
-          .where(sql`${sessions.expiresAt} > ${now}`)
-          .orderBy(desc(sessions.lastActivityAt));
+          .where(eq(sessions.userId, (ctx.user as any).id))
+          .orderBy(desc(sessions.lastActive));
 
-        // Join with user names
-        const userIds = Array.from(new Set(activeSessions.map(s => s.userId)));
-        const usersList = userIds.length > 0
-          ? await db.select().from(users).where(sql`${users.id} IN (${sql.join(userIds.map(id => sql`${id}`), sql`, `)})`)
-          : [];
-
-        const usersMap = new Map(usersList.map(u => [u.id, u.name]));
-
-        return activeSessions.map(session => ({
-          ...session,
-          userName: usersMap.get(session.userId) ?? "Unknown",
+        return rows.map(r => ({
+          id: r.id,
+          device: r.device || "Unknown",
+          ip: r.ip || "0.0.0.0",
+          lastActive: r.lastActive,
+          createdAt: r.createdAt,
         }));
       }),
 
+    revokeSession: permissionProcedure("settings.manage")
+      .input(z.object({ sessionId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+
+        await db.delete(sessions)
+          .where(and(
+            eq(sessions.id, input.sessionId),
+            eq(sessions.userId, (ctx.user as any).id)
+          ));
+
+        return { success: true } as const;
+      }),
+    */
     revokeSession: permissionProcedure("settings.manage")
       .input(z.object({ sessionId: z.number() }))
       .mutation(async ({ input, ctx }) => {
@@ -2735,359 +2746,359 @@ export const appRouter = router({
         return result;
       }),
   }),
-  achievements: router({
-    list: protectedProcedure.query(async ({ ctx }) => {
-      const db = await getDb();
-      if (!db || !ctx.user) return [];
-      return db.select().from(achievements).where(eq(achievements.userId, ctx.user.id));
-    }),
-
-    unlock: protectedProcedure
-      .input(z.object({ type: z.string(), metadata: z.any().optional() }))
-      .mutation(async ({ input, ctx }) => {
-        const db = await getDb();
-        if (!db || !ctx.user) return { success: false };
-        await db.insert(achievements).values({
-          userId: ctx.user.id,
-          type: input.type,
-          metadata: input.metadata,
-        });
-        return { success: true };
-      }),
-  }),
-
-  goals: router({
-    list: protectedProcedure.query(async ({ ctx }) => {
-      const db = await getDb();
-      if (!db || !ctx.user) return [];
-      return db.select().from(goals).where(eq(goals.userId, ctx.user.id));
-    }),
-
-    create: protectedProcedure
-      .input(z.object({
-        type: z.enum(["sales_amount", "deals_closed", "leads_created", "messages_sent"]),
-        targetAmount: z.number(),
-        period: z.enum(["daily", "weekly", "monthly"]),
-        startDate: z.string().transform(s => new Date(s)),
-        endDate: z.string().transform(s => new Date(s)),
-      }))
-      .mutation(async ({ input, ctx }) => {
-        const db = await getDb();
-        if (!db || !ctx.user) return { success: false };
-        await db.insert(goals).values({
-          userId: ctx.user.id,
-          type: input.type,
-          targetAmount: input.targetAmount,
-          period: input.period,
-          startDate: input.startDate,
-          endDate: input.endDate,
-        });
-        return { success: true };
-      }),
-
-    updateProgress: protectedProcedure
-      .input(z.object({ id: z.number(), amount: z.number() }))
-      .mutation(async ({ input, ctx }) => {
-        const db = await getDb();
-        if (!db) return { success: false };
-        await db.update(goals)
-          .set({ currentAmount: input.amount })
-          .where(eq(goals.id, input.id));
-        return { success: true };
-      }),
-  }),
-
-  // Dashboard Widgets Data
-  dashboard: router({
-    getStats: permissionProcedure("dashboard.view")
-      .query(async () => {
-        const db = await getDb();
-        if (!db) return { totalLeads: 0, activeNumbers: 0, messagesToday: 0, conversionRate: 0 };
-
-        // 1. Total Leads
-        const leadsCount = await db.select({ count: sql<number>`count(*)` }).from(leads);
-        const totalLeads = Number(leadsCount[0]?.count ?? 0);
-
-        // 2. Active WhatsApp Numbers
-        const numbersCount = await db.select({ count: sql<number>`count(*)` }).from(whatsappConnections).where(eq(whatsappConnections.isConnected, true));
-        const activeNumbers = Number(numbersCount[0]?.count ?? 0);
-
-        // 3. Messages Today (Outbound)
-        const startOfDay = new Date();
-        startOfDay.setHours(0, 0, 0, 0);
-        const messagesCount = await db
-          .select({ count: sql<number>`count(*)` })
-          .from(chatMessages)
-          .where(and(
-            eq(chatMessages.direction, "outbound"),
-            gte(chatMessages.createdAt, startOfDay)
-          ));
-        const messagesToday = Number(messagesCount[0]?.count ?? 0);
-
-        // 4. Conversion Rate (Won / Total)
-        const wonCount = await db.select({ count: sql<number>`count(*)` }).from(leads).where(eq(leads.status, "won"));
-        const won = Number(wonCount[0]?.count ?? 0);
-        const conversionRate = totalLeads > 0 ? Math.round((won / totalLeads) * 100) : 0;
-
-        return {
-          totalLeads,
-          activeNumbers,
-          messagesToday,
-          conversionRate
-        };
-      }),
-
-    getPipelineFunnel: permissionProcedure("dashboard.view")
-      .query(async () => {
-        const db = await getDb();
-        if (!db) return [];
-
-        // Get lead counts by pipeline stage
-        const stageCounts = await db
-          .select({
-            stageId: leads.pipelineStageId,
-            stageName: pipelineStages.name,
-            stageColor: pipelineStages.color,
-            stageOrder: pipelineStages.order,
-            count: sql<number>`count(*)`,
-          })
-          .from(leads)
-          .leftJoin(pipelineStages, eq(leads.pipelineStageId, pipelineStages.id))
-          .where(sql`${leads.pipelineStageId} IS NOT NULL`)
-          .groupBy(leads.pipelineStageId, pipelineStages.name, pipelineStages.color, pipelineStages.order)
-          .orderBy(asc(pipelineStages.order));
-
-        return stageCounts.map(s => ({
-          stage: s.stageName || "Sin etapa",
-          count: Number(s.count),
-          color: s.stageColor || "#e2e8f0",
-        }));
-      }),
-
-    getLeaderboard: permissionProcedure("dashboard.view")
-      .query(async () => {
-        const db = await getDb();
-        if (!db) return [];
-
-        // Get top agents by number of won deals and total commission
-        const leaderboard = await db
-          .select({
-            userId: leads.assignedToId,
-            userName: users.name,
-            dealsWon: sql<number>`count(*)`,
-            totalCommission: sql<number>`sum(${leads.commission})`,
-          })
-          .from(leads)
-          .leftJoin(users, eq(leads.assignedToId, users.id))
-          .where(eq(leads.status, "won"))
-          .groupBy(leads.assignedToId, users.name)
-          .orderBy(desc(sql`sum(${leads.commission})`))
-          .limit(5);
-
-        return leaderboard.map((agent, index) => ({
-          rank: index + 1,
-          name: agent.userName || "Sin asignar",
-          dealsWon: Number(agent.dealsWon),
-          commission: Number(agent.totalCommission || 0),
-        }));
-      }),
-
-    getUpcomingAppointments: permissionProcedure("dashboard.view")
-      .query(async () => {
-        const db = await getDb();
-        if (!db) return [];
-
-        const upcoming = await db
-          .select({
-            id: appointments.id,
-            firstName: appointments.firstName,
-            lastName: appointments.lastName,
-            phone: appointments.phone,
-            appointmentDate: appointments.appointmentDate,
-            appointmentTime: appointments.appointmentTime,
-            status: appointments.status,
-            reasonName: appointmentReasons.name,
-          })
-          .from(appointments)
-          .leftJoin(appointmentReasons, eq(appointments.reasonId, appointmentReasons.id))
-          .where(
-            and(
-              sql`${appointments.appointmentDate} >= CURDATE()`,
-              inArray(appointments.status, ["scheduled", "confirmed"])
-            )
-          )
-          .orderBy(asc(appointments.appointmentDate), asc(appointments.appointmentTime))
-          .limit(5);
-
-        return upcoming;
-      }),
-
-    getRecentActivity: permissionProcedure("dashboard.view")
-      .query(async () => {
-        const db = await getDb();
-        if (!db) return [];
-
-        const activities = await db
-          .select({
-            id: activityLogs.id,
-            action: activityLogs.action,
-            entityType: activityLogs.entityType,
-            entityId: activityLogs.entityId,
-            userName: users.name,
-            createdAt: activityLogs.createdAt,
-          })
-          .from(activityLogs)
-          .leftJoin(users, eq(activityLogs.userId, users.id))
-          .orderBy(desc(activityLogs.createdAt))
-          .limit(10);
-
-        return activities;
-      }),
-  }),
-  // Internal Team Chat
-  internalChat: router({
-    send: protectedProcedure
-      .input(z.object({
-        content: z.string().min(1),
-        recipientId: z.number().optional().nullable(), // Null = General
-        attachments: z.array(z.object({
-          type: z.enum(['image', 'video', 'file']),
-          url: z.string(),
-          name: z.string()
-        })).optional(),
-      }))
-      .mutation(async ({ input, ctx }) => {
-        const db = await getDb();
-        if (!db || !ctx.user) throw new Error("Database not available");
-
-        await db.insert(internalMessages).values({
-          senderId: ctx.user.id,
-          recipientId: input.recipientId ?? null,
-          content: input.content,
-          attachments: input.attachments,
-        });
-
-        return { success: true };
-      }),
-
-    getHistory: protectedProcedure
-      .input(z.object({
-        recipientId: z.number().optional().nullable(), // Null = General
-      }))
-      .query(async ({ input, ctx }) => {
+    achievements: router({
+      list: protectedProcedure.query(async ({ ctx }) => {
         const db = await getDb();
         if (!db || !ctx.user) return [];
-
-        if (!input.recipientId) {
-          // General channel: fetch all messages where recipientId is null
-          const msgs = await db.select({
-            id: internalMessages.id,
-            content: internalMessages.content,
-            attachments: internalMessages.attachments,
-            createdAt: internalMessages.createdAt,
-            senderId: internalMessages.senderId,
-            senderName: users.name,
-          })
-            .from(internalMessages)
-            .leftJoin(users, eq(internalMessages.senderId, users.id))
-            .where(sql`${internalMessages.recipientId} IS NULL`)
-            .orderBy(asc(internalMessages.createdAt))
-            .limit(100);
-
-          return msgs;
-        } else {
-          // Direct Message: fetch messages between me and recipient (both directions)
-          const msgs = await db.select({
-            id: internalMessages.id,
-            content: internalMessages.content,
-            attachments: internalMessages.attachments,
-            createdAt: internalMessages.createdAt,
-            senderId: internalMessages.senderId,
-            senderName: users.name,
-          })
-            .from(internalMessages)
-            .leftJoin(users, eq(internalMessages.senderId, users.id))
-            .where(
-              and(
-                sql`(${internalMessages.senderId} = ${ctx.user.id} AND ${internalMessages.recipientId} = ${input.recipientId}) OR (${internalMessages.senderId} = ${input.recipientId} AND ${internalMessages.recipientId} = ${ctx.user.id})`
-              )
-            )
-            .orderBy(asc(internalMessages.createdAt))
-            .limit(100);
-
-          return msgs;
-        }
+        return db.select().from(achievements).where(eq(achievements.userId, ctx.user.id));
       }),
 
-    // Mark messages as read from a specific sender (or general channel)
-    markAsRead: protectedProcedure
-      .input(z.object({
-        senderId: z.number().optional().nullable(), // Null = General channel updates
-      }))
-      .mutation(async ({ input, ctx }) => {
-        const db = await getDb();
-        if (!db || !ctx.user) return { success: false };
-
-        if (!input.senderId) {
-          // Mark general channel messages as read? 
-          // Actually, for General channel, it's harder to track "read" per user without a separate table "MessageReadStatus".
-          // For now, we will only track Direct Message read status.
-          // If we want to track General, we need a many-to-many table (User <-> Message).
-          // Let's skip General channel read status for now to keep schema simple, or just client-side local storage.
+      unlock: protectedProcedure
+        .input(z.object({ type: z.string(), metadata: z.any().optional() }))
+        .mutation(async ({ input, ctx }) => {
+          const db = await getDb();
+          if (!db || !ctx.user) return { success: false };
+          await db.insert(achievements).values({
+            userId: ctx.user.id,
+            type: input.type,
+            metadata: input.metadata,
+          });
           return { success: true };
-        } else {
-          // Mark all messages FROM senderId TO me as read
-          await db.update(internalMessages)
-            .set({ isRead: true })
-            .where(
-              and(
-                eq(internalMessages.senderId, input.senderId),
-                eq(internalMessages.recipientId, ctx.user.id),
-                eq(internalMessages.isRead, false)
-              )
-            );
-        }
-        return { success: true };
+        }),
+    }),
+
+      goals: router({
+        list: protectedProcedure.query(async ({ ctx }) => {
+          const db = await getDb();
+          if (!db || !ctx.user) return [];
+          return db.select().from(goals).where(eq(goals.userId, ctx.user.id));
+        }),
+
+        create: protectedProcedure
+          .input(z.object({
+            type: z.enum(["sales_amount", "deals_closed", "leads_created", "messages_sent"]),
+            targetAmount: z.number(),
+            period: z.enum(["daily", "weekly", "monthly"]),
+            startDate: z.string().transform(s => new Date(s)),
+            endDate: z.string().transform(s => new Date(s)),
+          }))
+          .mutation(async ({ input, ctx }) => {
+            const db = await getDb();
+            if (!db || !ctx.user) return { success: false };
+            await db.insert(goals).values({
+              userId: ctx.user.id,
+              type: input.type,
+              targetAmount: input.targetAmount,
+              period: input.period,
+              startDate: input.startDate,
+              endDate: input.endDate,
+            });
+            return { success: true };
+          }),
+
+        updateProgress: protectedProcedure
+          .input(z.object({ id: z.number(), amount: z.number() }))
+          .mutation(async ({ input, ctx }) => {
+            const db = await getDb();
+            if (!db) return { success: false };
+            await db.update(goals)
+              .set({ currentAmount: input.amount })
+              .where(eq(goals.id, input.id));
+            return { success: true };
+          }),
       }),
 
-    getRecentChats: protectedProcedure.query(async ({ ctx }) => {
-      const db = await getDb();
-      if (!db || !ctx.user) return [];
+        // Dashboard Widgets Data
+        dashboard: router({
+          getStats: permissionProcedure("dashboard.view")
+            .query(async () => {
+              const db = await getDb();
+              if (!db) return { totalLeads: 0, activeNumbers: 0, messagesToday: 0, conversionRate: 0 };
 
-      const allUsers = await db.select({
-        id: users.id,
-        name: users.name,
-        role: users.role,
-        isActive: users.isActive
-      }).from(users).where(eq(users.isActive, true));
+              // 1. Total Leads
+              const leadsCount = await db.select({ count: sql<number>`count(*)` }).from(leads);
+              const totalLeads = Number(leadsCount[0]?.count ?? 0);
 
-      // Get unread counts for each user
-      // We can do this efficiently with a groupBy query
-      const unreadCounts = await db.select({
-        senderId: internalMessages.senderId,
-        count: sql<number>`count(*)`
-      })
-        .from(internalMessages)
-        .where(
-          and(
-            eq(internalMessages.recipientId, ctx.user.id), // Sent to me
-            eq(internalMessages.isRead, false) // Not read
-          )
-        )
-        .groupBy(internalMessages.senderId);
+              // 2. Active WhatsApp Numbers
+              const numbersCount = await db.select({ count: sql<number>`count(*)` }).from(whatsappConnections).where(eq(whatsappConnections.isConnected, true));
+              const activeNumbers = Number(numbersCount[0]?.count ?? 0);
 
-      const unreadMap = new Map<number, number>();
-      unreadCounts.forEach(r => unreadMap.set(r.senderId, Number(r.count)));
+              // 3. Messages Today (Outbound)
+              const startOfDay = new Date();
+              startOfDay.setHours(0, 0, 0, 0);
+              const messagesCount = await db
+                .select({ count: sql<number>`count(*)` })
+                .from(chatMessages)
+                .where(and(
+                  eq(chatMessages.direction, "outbound"),
+                  gte(chatMessages.createdAt, startOfDay)
+                ));
+              const messagesToday = Number(messagesCount[0]?.count ?? 0);
 
-      return allUsers
-        .filter(u => u.id !== ctx.user?.id)
-        .map(u => ({
-          ...u,
-          unreadCount: unreadMap.get(u.id) || 0
-        }))
-        .sort((a, b) => (b.unreadCount - a.unreadCount)); // Sort by unread first
-    }),
-  }),
+              // 4. Conversion Rate (Won / Total)
+              const wonCount = await db.select({ count: sql<number>`count(*)` }).from(leads).where(eq(leads.status, "won"));
+              const won = Number(wonCount[0]?.count ?? 0);
+              const conversionRate = totalLeads > 0 ? Math.round((won / totalLeads) * 100) : 0;
+
+              return {
+                totalLeads,
+                activeNumbers,
+                messagesToday,
+                conversionRate
+              };
+            }),
+
+          getPipelineFunnel: permissionProcedure("dashboard.view")
+            .query(async () => {
+              const db = await getDb();
+              if (!db) return [];
+
+              // Get lead counts by pipeline stage
+              const stageCounts = await db
+                .select({
+                  stageId: leads.pipelineStageId,
+                  stageName: pipelineStages.name,
+                  stageColor: pipelineStages.color,
+                  stageOrder: pipelineStages.order,
+                  count: sql<number>`count(*)`,
+                })
+                .from(leads)
+                .leftJoin(pipelineStages, eq(leads.pipelineStageId, pipelineStages.id))
+                .where(sql`${leads.pipelineStageId} IS NOT NULL`)
+                .groupBy(leads.pipelineStageId, pipelineStages.name, pipelineStages.color, pipelineStages.order)
+                .orderBy(asc(pipelineStages.order));
+
+              return stageCounts.map(s => ({
+                stage: s.stageName || "Sin etapa",
+                count: Number(s.count),
+                color: s.stageColor || "#e2e8f0",
+              }));
+            }),
+
+          getLeaderboard: permissionProcedure("dashboard.view")
+            .query(async () => {
+              const db = await getDb();
+              if (!db) return [];
+
+              // Get top agents by number of won deals and total commission
+              const leaderboard = await db
+                .select({
+                  userId: leads.assignedToId,
+                  userName: users.name,
+                  dealsWon: sql<number>`count(*)`,
+                  totalCommission: sql<number>`sum(${leads.commission})`,
+                })
+                .from(leads)
+                .leftJoin(users, eq(leads.assignedToId, users.id))
+                .where(eq(leads.status, "won"))
+                .groupBy(leads.assignedToId, users.name)
+                .orderBy(desc(sql`sum(${leads.commission})`))
+                .limit(5);
+
+              return leaderboard.map((agent, index) => ({
+                rank: index + 1,
+                name: agent.userName || "Sin asignar",
+                dealsWon: Number(agent.dealsWon),
+                commission: Number(agent.totalCommission || 0),
+              }));
+            }),
+
+          getUpcomingAppointments: permissionProcedure("dashboard.view")
+            .query(async () => {
+              const db = await getDb();
+              if (!db) return [];
+
+              const upcoming = await db
+                .select({
+                  id: appointments.id,
+                  firstName: appointments.firstName,
+                  lastName: appointments.lastName,
+                  phone: appointments.phone,
+                  appointmentDate: appointments.appointmentDate,
+                  appointmentTime: appointments.appointmentTime,
+                  status: appointments.status,
+                  reasonName: appointmentReasons.name,
+                })
+                .from(appointments)
+                .leftJoin(appointmentReasons, eq(appointments.reasonId, appointmentReasons.id))
+                .where(
+                  and(
+                    sql`${appointments.appointmentDate} >= CURDATE()`,
+                    inArray(appointments.status, ["scheduled", "confirmed"])
+                  )
+                )
+                .orderBy(asc(appointments.appointmentDate), asc(appointments.appointmentTime))
+                .limit(5);
+
+              return upcoming;
+            }),
+
+          getRecentActivity: permissionProcedure("dashboard.view")
+            .query(async () => {
+              const db = await getDb();
+              if (!db) return [];
+
+              const activities = await db
+                .select({
+                  id: activityLogs.id,
+                  action: activityLogs.action,
+                  entityType: activityLogs.entityType,
+                  entityId: activityLogs.entityId,
+                  userName: users.name,
+                  createdAt: activityLogs.createdAt,
+                })
+                .from(activityLogs)
+                .leftJoin(users, eq(activityLogs.userId, users.id))
+                .orderBy(desc(activityLogs.createdAt))
+                .limit(10);
+
+              return activities;
+            }),
+        }),
+          // Internal Team Chat
+          internalChat: router({
+            send: protectedProcedure
+              .input(z.object({
+                content: z.string().min(1),
+                recipientId: z.number().optional().nullable(), // Null = General
+                attachments: z.array(z.object({
+                  type: z.enum(['image', 'video', 'file']),
+                  url: z.string(),
+                  name: z.string()
+                })).optional(),
+              }))
+              .mutation(async ({ input, ctx }) => {
+                const db = await getDb();
+                if (!db || !ctx.user) throw new Error("Database not available");
+
+                await db.insert(internalMessages).values({
+                  senderId: ctx.user.id,
+                  recipientId: input.recipientId ?? null,
+                  content: input.content,
+                  attachments: input.attachments,
+                });
+
+                return { success: true };
+              }),
+
+            getHistory: protectedProcedure
+              .input(z.object({
+                recipientId: z.number().optional().nullable(), // Null = General
+              }))
+              .query(async ({ input, ctx }) => {
+                const db = await getDb();
+                if (!db || !ctx.user) return [];
+
+                if (!input.recipientId) {
+                  // General channel: fetch all messages where recipientId is null
+                  const msgs = await db.select({
+                    id: internalMessages.id,
+                    content: internalMessages.content,
+                    attachments: internalMessages.attachments,
+                    createdAt: internalMessages.createdAt,
+                    senderId: internalMessages.senderId,
+                    senderName: users.name,
+                  })
+                    .from(internalMessages)
+                    .leftJoin(users, eq(internalMessages.senderId, users.id))
+                    .where(sql`${internalMessages.recipientId} IS NULL`)
+                    .orderBy(asc(internalMessages.createdAt))
+                    .limit(100);
+
+                  return msgs;
+                } else {
+                  // Direct Message: fetch messages between me and recipient (both directions)
+                  const msgs = await db.select({
+                    id: internalMessages.id,
+                    content: internalMessages.content,
+                    attachments: internalMessages.attachments,
+                    createdAt: internalMessages.createdAt,
+                    senderId: internalMessages.senderId,
+                    senderName: users.name,
+                  })
+                    .from(internalMessages)
+                    .leftJoin(users, eq(internalMessages.senderId, users.id))
+                    .where(
+                      and(
+                        sql`(${internalMessages.senderId} = ${ctx.user.id} AND ${internalMessages.recipientId} = ${input.recipientId}) OR (${internalMessages.senderId} = ${input.recipientId} AND ${internalMessages.recipientId} = ${ctx.user.id})`
+                      )
+                    )
+                    .orderBy(asc(internalMessages.createdAt))
+                    .limit(100);
+
+                  return msgs;
+                }
+              }),
+
+            // Mark messages as read from a specific sender (or general channel)
+            markAsRead: protectedProcedure
+              .input(z.object({
+                senderId: z.number().optional().nullable(), // Null = General channel updates
+              }))
+              .mutation(async ({ input, ctx }) => {
+                const db = await getDb();
+                if (!db || !ctx.user) return { success: false };
+
+                if (!input.senderId) {
+                  // Mark general channel messages as read? 
+                  // Actually, for General channel, it's harder to track "read" per user without a separate table "MessageReadStatus".
+                  // For now, we will only track Direct Message read status.
+                  // If we want to track General, we need a many-to-many table (User <-> Message).
+                  // Let's skip General channel read status for now to keep schema simple, or just client-side local storage.
+                  return { success: true };
+                } else {
+                  // Mark all messages FROM senderId TO me as read
+                  await db.update(internalMessages)
+                    .set({ isRead: true })
+                    .where(
+                      and(
+                        eq(internalMessages.senderId, input.senderId),
+                        eq(internalMessages.recipientId, ctx.user.id),
+                        eq(internalMessages.isRead, false)
+                      )
+                    );
+                }
+                return { success: true };
+              }),
+
+            getRecentChats: protectedProcedure.query(async ({ ctx }) => {
+              const db = await getDb();
+              if (!db || !ctx.user) return [];
+
+              const allUsers = await db.select({
+                id: users.id,
+                name: users.name,
+                role: users.role,
+                isActive: users.isActive
+              }).from(users).where(eq(users.isActive, true));
+
+              // Get unread counts for each user
+              // We can do this efficiently with a groupBy query
+              const unreadCounts = await db.select({
+                senderId: internalMessages.senderId,
+                count: sql<number>`count(*)`
+              })
+                .from(internalMessages)
+                .where(
+                  and(
+                    eq(internalMessages.recipientId, ctx.user.id), // Sent to me
+                    eq(internalMessages.isRead, false) // Not read
+                  )
+                )
+                .groupBy(internalMessages.senderId);
+
+              const unreadMap = new Map<number, number>();
+              unreadCounts.forEach(r => unreadMap.set(r.senderId, Number(r.count)));
+
+              return allUsers
+                .filter(u => u.id !== ctx.user?.id)
+                .map(u => ({
+                  ...u,
+                  unreadCount: unreadMap.get(u.id) || 0
+                }))
+                .sort((a, b) => (b.unreadCount - a.unreadCount)); // Sort by unread first
+            }),
+          }),
 
 
 });
