@@ -664,7 +664,6 @@ function DashboardConfigEditor() {
     { key: "analytics", label: "Analytics" },
     { key: "scheduling", label: "Agendamiento" },
     { key: "monitoring", label: "Monitoreo en Vivo" },
-    { key: "reports", label: "Reportes" },
   ];
 
   const handleToggle = (key: string, val: boolean) => {

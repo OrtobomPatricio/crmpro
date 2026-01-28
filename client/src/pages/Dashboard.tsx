@@ -100,11 +100,9 @@ function DashboardContent() {
         'kanban': true,
         'monitoring': true,
         'analytics': true,
-        'reports': true,
         'automations': true,
         'integrations': true,
         'backups': true,
-        'settings': true,
         'leads': true,
         'campaigns': true,
         'conversations': true,
@@ -197,15 +195,7 @@ function DashboardContent() {
             hoverColor: "hover:border-indigo-500/50",
             path: "/analytics",
         },
-        {
-            key: "reports",
-            icon: FileText,
-            label: "Reportes",
-            description: "Informes detallados exportables",
-            iconColor: "icon-container-gray",
-            hoverColor: "hover:border-gray-500/50",
-            path: "/reports",
-        },
+
         {
             key: "automations",
             icon: Zap,
@@ -296,15 +286,7 @@ function DashboardContent() {
             hoverColor: "hover:border-orange-500/50",
             path: "/warmup",
         },
-        {
-            key: "settings",
-            icon: Settings,
-            label: "Configuración",
-            description: "Permisos, roles y ajustes",
-            iconColor: "icon-container-slate",
-            hoverColor: "hover:border-slate-500/50",
-            path: "/settings",
-        },
+
     ];
 
     const statCards = [
