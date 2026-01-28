@@ -42,11 +42,11 @@ if [ ! -f ".env" ]; then
 # ==========================================
 NODE_ENV=production
 # Conexion interna docker
-DATABASE_URL=mysql://root:\${DB_PASS}@mysql:3306/chin_crm
+DATABASE_URL=mysql://root:${DB_PASS}@mysql:3306/chin_crm
 
 # --- SEGURIDAD ---
-JWT_SECRET=\${JWT_SEC}
-DATA_ENCRYPTION_KEY=\${ENC_KEY}
+JWT_SECRET=${JWT_SEC}
+DATA_ENCRYPTION_KEY=${ENC_KEY}
 
 # --- USUARIO ADMIN ---
 # Valor temporal para permitir el arranque.
@@ -59,17 +59,17 @@ VITE_DEV_BYPASS_AUTH=0
 
 # --- DB ---
 DB_USER=root
-DB_PASS=\${DB_PASS}
+DB_PASS=${DB_PASS}
 DB_NAME=chin_crm
-MYSQL_ROOT_PASSWORD=\${DB_PASS}
+MYSQL_ROOT_PASSWORD=${DB_PASS}
 
 # --- DOMINIO / IP ---
-VITE_OAUTH_PORTAL_URL=http://\${PUBLIC_IP}:3000
-OAUTH_SERVER_URL=http://\${PUBLIC_IP}:3000
+VITE_OAUTH_PORTAL_URL=http://${PUBLIC_IP}:3000
+OAUTH_SERVER_URL=http://${PUBLIC_IP}:3000
 EOF
 
     echo "✅ Archivo .env generado con contraseñas seguras."
-    echo "🔑 Tu contraseña de base de datos es: \${DB_PASS}"
+    echo "🔑 Tu contraseña de base de datos es: ${DB_PASS}"
 fi
 
 # 4. Build and Run
