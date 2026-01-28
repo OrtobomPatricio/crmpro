@@ -191,6 +191,9 @@ function DashboardLayoutContent({
 
     // 2) Permission restriction (soft gate, waits for permissions to load)
     if (item.requiredPerm) {
+      // Emergency override: Owner and Admin see everything prevents lockout
+      if (role === 'owner' || role === 'admin') return true;
+
       if (permsLoading) return true; // don't flash-hide while loading
       return can(item.requiredPerm);
     }
