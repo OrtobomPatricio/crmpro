@@ -95,6 +95,19 @@ function DashboardContent() {
         'recent-activity': false,
         'quick-actions': true,
         'recent-leads': true,
+        // Quick Actions Defaults
+        'kanban': true,
+        'monitoring': true,
+        'analytics': true,
+        'reports': true,
+        'automations': true,
+        'integrations': true,
+        'backups': true,
+        'settings': true,
+        'leads': true,
+        'campaigns': true,
+        'conversations': true,
+        'scheduling': true,
     });
 
     // Load config from backend
@@ -369,7 +382,7 @@ function DashboardContent() {
                 <div className="bg-background/50 rounded-lg p-6 border">
                     <h2 className="text-xl font-semibold mb-4">Acciones Rápidas</h2>
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {quickActions.map((action) => (
+                        {quickActions.filter(action => widgetConfig[action.key] !== false).map((action) => (
                             <div
                                 key={action.key}
                                 onClick={() => setLocation(action.path)}
