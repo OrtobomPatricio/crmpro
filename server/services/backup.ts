@@ -135,113 +135,56 @@ async function restoreBackupReplaceAll(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  // Delete children first (best effort). If your schema has no FKs, order still ok.
-  await db.delete(chatMessages);
-  await db.delete(conversations);
-  await db.delete(campaignRecipients);
-  await db.delete(campaigns);
-  await db.delete(templates);
-  await db.delete(pipelineStages);
-  await db.delete(pipelines);
-  await db.delete(integrations);
-  await db.delete(whatsappConnections);
-  await db.delete(whatsappNumbers);
-  await db.delete(leads);
-  await db.delete(appSettings);
+  inserted.leads = leadsData.length;
+}
 
-  const inserted: Record<string, number> = {
-    appSettings: 0,
-    pipelines: 0,
-    pipelineStages: 0,
-    templates: 0,
-    leads: 0,
-    campaigns: 0,
-    campaignRecipients: 0,
-    conversations: 0,
-    chatMessages: 0,
-    whatsappNumbers: 0,
-    whatsappConnections: 0,
-    integrations: 0,
-  };
+const nums = asArray(data.whatsappNumbers);
+if (nums.length) {
+  await db.insert(whatsappNumbers).values(nums as any);
+  inserted.whatsappNumbers = nums.length;
+}
 
-  // Insert in parent -> children order
-  const settings = asArray(data.appSettings);
-  if (settings.length) {
-    await db.insert(appSettings).values(settings as any);
-    inserted.appSettings = settings.length;
-  }
+const conns = asArray(data.whatsappConnections);
+if (conns.length) {
+  await db.insert(whatsappConnections).values(conns as any);
+  inserted.whatsappConnections = conns.length;
+}
 
-  const pipes = asArray(data.pipelines);
-  if (pipes.length) {
-    await db.insert(pipelines).values(pipes as any);
-    inserted.pipelines = pipes.length;
-  }
+const ints = asArray(data.integrations);
+if (ints.length) {
+  await db.insert(integrations).values(ints as any);
+  inserted.integrations = ints.length;
+}
 
-  const stages = asArray(data.pipelineStages);
-  if (stages.length) {
-    await db.insert(pipelineStages).values(stages as any);
-    inserted.pipelineStages = stages.length;
-  }
+const camps = asArray(data.campaigns);
+if (camps.length) {
+  await db.insert(campaigns).values(camps as any);
+  inserted.campaigns = camps.length;
+}
 
-  const tmpl = asArray(data.templates);
-  if (tmpl.length) {
-    await db.insert(templates).values(tmpl as any);
-    inserted.templates = tmpl.length;
-  }
+const recips = asArray(data.campaignRecipients);
+if (recips.length) {
+  await db.insert(campaignRecipients).values(recips as any);
+  inserted.campaignRecipients = recips.length;
+}
 
-  const leadsData = asArray(data.leads);
-  if (leadsData.length) {
-    await db.insert(leads).values(leadsData as any);
-    inserted.leads = leadsData.length;
-  }
+const convos = asArray(data.conversations);
+if (convos.length) {
+  await db.insert(conversations).values(convos as any);
+  inserted.conversations = convos.length;
+}
 
-  const nums = asArray(data.whatsappNumbers);
-  if (nums.length) {
-    await db.insert(whatsappNumbers).values(nums as any);
-    inserted.whatsappNumbers = nums.length;
-  }
+const msgs = asArray(data.chatMessages);
+if (msgs.length) {
+  await db.insert(chatMessages).values(msgs as any);
+  inserted.chatMessages = msgs.length;
+}
 
-  const conns = asArray(data.whatsappConnections);
-  if (conns.length) {
-    await db.insert(whatsappConnections).values(conns as any);
-    inserted.whatsappConnections = conns.length;
-  }
-
-  const ints = asArray(data.integrations);
-  if (ints.length) {
-    await db.insert(integrations).values(ints as any);
-    inserted.integrations = ints.length;
-  }
-
-  const camps = asArray(data.campaigns);
-  if (camps.length) {
-    await db.insert(campaigns).values(camps as any);
-    inserted.campaigns = camps.length;
-  }
-
-  const recips = asArray(data.campaignRecipients);
-  if (recips.length) {
-    await db.insert(campaignRecipients).values(recips as any);
-    inserted.campaignRecipients = recips.length;
-  }
-
-  const convos = asArray(data.conversations);
-  if (convos.length) {
-    await db.insert(conversations).values(convos as any);
-    inserted.conversations = convos.length;
-  }
-
-  const msgs = asArray(data.chatMessages);
-  if (msgs.length) {
-    await db.insert(chatMessages).values(msgs as any);
-    inserted.chatMessages = msgs.length;
-  }
-
-  return {
-    success: true as const,
-    mode: "replace" as const,
-    inserted,
-  };
+return {
+  success: true as const,
+  mode: "replace" as const,
+  inserted,
+};
 }
 
 async function restoreBackupMergeSafe(data: any) {

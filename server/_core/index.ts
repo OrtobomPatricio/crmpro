@@ -18,6 +18,7 @@ import path from "path";
 import fs from "fs";
 
 import { runMigrations } from "../scripts/migrate";
+import { validateProductionSecrets } from "./validate-env";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
