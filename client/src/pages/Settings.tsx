@@ -78,7 +78,7 @@ const ROLE_OPTIONS = [
 
 export default function Settings() {
   return (
-      <SettingsContent />
+    <SettingsContent />
   );
 }
 
@@ -278,7 +278,7 @@ function SettingsContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
+        <TabsList className="grid w-full h-auto grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-y-2">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="team">Usuarios</TabsTrigger>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
