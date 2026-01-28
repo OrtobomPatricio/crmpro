@@ -135,56 +135,114 @@ async function restoreBackupReplaceAll(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  inserted.leads = leadsData.length;
-}
+  // CRITICAL: Use transaction to ensure atomicity
+  // If restore fails mid-way, everything rolls back
+  return await db.transaction(async (tx) => {
+    // Delete children first (best effort). If your schema has no FKs, order still ok.
+    await tx.delete(chatMessages);
+    await tx.delete(conversations);
+    await tx.delete(campaignRecipients);
+    await tx.delete(campaigns);
+    await tx.delete(templates);
+    await tx.delete(pipelineStages);
+    await tx.delete(pipelines);
+    await tx.delete(integrations);
+    await tx.delete(whatsappConnections);
+    await tx.delete(whatsappNumbers);
+    await tx.delete(leads);
+    await tx.delete(appSettings);
 
-const nums = asArray(data.whatsappNumbers);
-if (nums.length) {
-  await db.insert(whatsappNumbers).values(nums as any);
-  inserted.whatsappNumbers = nums.length;
-}
+    const inserted: Record<string, number> = {
+      appSettings: 0,
+      pipelines: 0,
+      pipelineStages: 0,
+      templates: 0,
+      leads: 0,
+      campaigns: 0,
+      campaignRecipients: 0,
+      conversations: 0,
+      chatMessages: 0,
+      whatsappNumbers: 0,
+      whatsappConnections: 0,
+      integrations: 0,
+    };
 
-const conns = asArray(data.whatsappConnections);
-if (conns.length) {
-  await db.insert(whatsappConnections).values(conns as any);
-  inserted.whatsappConnections = conns.length;
-}
+    // Insert in parent -> children order
+    const settings = asArray(data.appSettings);
+    if (settings.length) {
+      await tx.insert(appSettings).values(settings as any);
+      inserted.appSettings = settings.length;
+    }
 
-const ints = asArray(data.integrations);
-if (ints.length) {
-  await db.insert(integrations).values(ints as any);
-  inserted.integrations = ints.length;
-}
+    const pipes = asArray(data.pipelines);
+    if (pipes.length) {
+      await tx.insert(pipelines).values(pipes as any);
+      inserted.pipelines = pipes.length;
+    }
 
-const camps = asArray(data.campaigns);
-if (camps.length) {
-  await db.insert(campaigns).values(camps as any);
-  inserted.campaigns = camps.length;
-}
+    const stages = asArray(data.pipelineStages);
+    if (stages.length) {
+      await tx.insert(pipelineStages).values(stages as any);
+      inserted.pipelineStages = stages.length;
+    }
 
-const recips = asArray(data.campaignRecipients);
-if (recips.length) {
-  await db.insert(campaignRecipients).values(recips as any);
-  inserted.campaignRecipients = recips.length;
-}
+    const tmpl = asArray(data.templates);
+    if (tmpl.length) {
+      await tx.insert(templates).values(tmpl as any);
+      inserted.templates = tmpl.length;
+    }
 
-const convos = asArray(data.conversations);
-if (convos.length) {
-  await db.insert(conversations).values(convos as any);
-  inserted.conversations = convos.length;
-}
+    const leadsData = asArray(data.leads);
+    if (leadsData.length) {
+      await tx.insert(leads).values(leadsData as any);
+      inserted.leads = leadsData.length;
+    }
 
-const msgs = asArray(data.chatMessages);
-if (msgs.length) {
-  await db.insert(chatMessages).values(msgs as any);
-  inserted.chatMessages = msgs.length;
-}
+    const nums = asArray(data.whatsappNumbers);
+    if (nums.length) {
+      await tx.insert(whatsappNumbers).values(nums as any);
+      inserted.whatsappNumbers = nums.length;
+    }
 
-return {
-  success: true as const,
-  mode: "replace" as const,
-  inserted,
-};
+    const conns = asArray(data.whatsappConnections);
+    if (conns.length) {
+      await tx.insert(whatsappConnections).values(conns as any);
+      inserted.whatsappConnections = conns.length;
+    }
+
+    const intgs = asArray(data.integrations);
+    if (intgs.length) {
+      await tx.insert(integrations).values(intgs as any);
+      inserted.integrations = intgs.length;
+    }
+
+    const camps = asArray(data.campaigns);
+    if (camps.length) {
+      await tx.insert(campaigns).values(camps as any);
+      inserted.campaigns = camps.length;
+    }
+
+    const campRecips = asArray(data.campaignRecipients);
+    if (campRecips.length) {
+      await tx.insert(campaignRecipients).values(campRecips as any);
+      inserted.campaignRecipients = campRecips.length;
+    }
+
+    const convs = asArray(data.conversations);
+    if (convs.length) {
+      await tx.insert(conversations).values(convs as any);
+      inserted.conversations = convs.length;
+    }
+
+    const msgs = asArray(data.chatMessages);
+    if (msgs.length) {
+      await tx.insert(chatMessages).values(msgs as any);
+      inserted.chatMessages = msgs.length;
+    }
+
+    console.log("✅ Backup restored successfully (transactional):", inserted);
+    return { success: true, inserted };
+  });
 }
 
 async function restoreBackupMergeSafe(data: any) {
