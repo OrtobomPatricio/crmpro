@@ -6,25 +6,34 @@ import { eq, and } from "drizzle-orm";
 import { whatsappNumbers, whatsappConnections } from "../drizzle/schema";
 import { encryptSecret } from "./_core/crypto";
 import axios from "axios";
+import { getOrCreateAppSettings } from "./services/app-settings";
 
 const META_API_VERSION = "v19.0";
 
 export function registerMetaRoutes(app: Express) {
 
     // 1. Redirect to Facebook Login
-    app.get("/api/meta/connect", (req: Request, res: Response) => {
-        const appId = process.env.META_APP_ID;
-        const redirectUri = `${process.env.VITE_API_URL || "http://localhost:3000"}/api/meta/callback`;
-        const scope = "business_management,whatsapp_business_management,whatsapp_business_messaging";
+    app.get("/api/meta/connect", async (req: Request, res: Response) => {
+        try {
+            const database = await db.getDb();
+            const settings = await getOrCreateAppSettings(database);
+            const appId = settings.metaConfig?.appId || process.env.META_APP_ID;
 
-        // State should be random string for security
-        const state = Math.random().toString(36).substring(7);
+            const redirectUri = `${process.env.VITE_API_URL || "http://localhost:3000"}/api/meta/callback`;
+            const scope = "business_management,whatsapp_business_management,whatsapp_business_messaging";
 
-        if (!appId) return res.status(500).send("META_APP_ID is not configured");
+            // State should be random string for security
+            const state = Math.random().toString(36).substring(7);
 
-        const url = `https://www.facebook.com/${META_API_VERSION}/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}&response_type=code`;
+            if (!appId) return res.status(500).send("META_APP_ID is not configured in Settings");
 
-        res.redirect(url);
+            const url = `https://www.facebook.com/${META_API_VERSION}/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}&response_type=code`;
+
+            res.redirect(url);
+        } catch (error) {
+            console.error(error);
+            res.status(500).send("Internal Server Error");
+        }
     });
 
     // 2. Handle Callback
@@ -41,8 +50,15 @@ export function registerMetaRoutes(app: Express) {
         }
 
         try {
-            const appId = process.env.META_APP_ID;
-            const appSecret = process.env.META_APP_SECRET;
+            const database = await db.getDb();
+            const settings = await getOrCreateAppSettings(database);
+            const appId = settings.metaConfig?.appId || process.env.META_APP_ID;
+            const appSecret = settings.metaConfig?.appSecret || process.env.META_APP_SECRET;
+
+            if (!appId || !appSecret) {
+                return res.redirect("/settings?tab=distribution&error=missing_credentials");
+            }
+
             const redirectUri = `${process.env.VITE_API_URL || "http://localhost:3000"}/api/meta/callback`;
 
             // A. Exchange code for short-lived token
@@ -70,42 +86,6 @@ export function registerMetaRoutes(app: Express) {
             const accessToken = longTokenRes.data.access_token; // Long-lived
 
             // C. Fetch WABA and Phone Numbers
-            // First get 'me' to find accounts
-            // We really need the WABA ID. 
-            // Strategy: Get /me/accounts -> find business -> find phone numbers? 
-            // Or simpler: /me?fields=id,name,accounts...
-
-            // Let's try to get WhatsApp Business Accounts directly if possible or iterate
-            // A common pattern is: GET /me/businesses (requires implementation) or assume user selects one?
-            // For automation, we'll fetch the first WABA available or use "shared_waba_id" if we are a tech provider? 
-            // Assuming standard OAuth flow:
-
-            // Let's get "me" to check identity
-            const meRes = await axios.get(`https://graph.facebook.com/${META_API_VERSION}/me`, {
-                params: { access_token: accessToken }
-            });
-
-            // Now find WABAs. `GET /<user_id>/whatsapp_business_accounts` would be ideal but permissions vary.
-            // A robust way: `GET /me/accounts` implies Pages.
-            // Let's rely on `GET /<business_id>/phone_numbers` later.
-            // For now, let's fetch WABA info via `GET /me/whatsapp_business_accounts` ? No, endpoint might be `client_whatsapp_business_accounts` or `businesses`.
-
-            // SIMPLIFICATION for "Automatic":
-            // 1. Get WABAs: `GET /me/businesses` -> for each business -> `GET /<id>/client_whatsapp_business_accounts`?
-            // Actually, with `whatsapp_business_management`, we can often query `GET /<user-id>/businesses`.
-
-            // Let's try to just SAVE the token first, maybe associated with a "pending" state or update the existing connection.
-            // But the user wants "discover WABA + phone_number_id".
-
-            // Let's attempt to fetch the FIRST WABA and its FIRST phone number.
-            // This is heuristic but works for single-number setups.
-
-            // We'll traverse: me -> businesses -> waba -> phone_numbers
-            // Or: `GET /me/accounts` (pages) ?? No.
-
-            // Better: `GET /me?fields=id,name,businesses{id,name,owned_whatsapp_business_accounts{id,name,phone_numbers{id,display_database_name,certificate,new_certificate}}}`
-            // Note: `owned_whatsapp_business_accounts` works if the user owns it. If they are admin, maybe `client_whatsapp_business_accounts`.
-
             const details = await axios.get(`https://graph.facebook.com/${META_API_VERSION}/me`, {
                 params: {
                     access_token: accessToken,
@@ -118,8 +98,7 @@ export function registerMetaRoutes(app: Express) {
             const phone = waba?.phone_numbers?.data?.[0];
 
             if (waba && phone) {
-                const database = await db.getDb();
-                if (!database) {
+                if (!database) { // Redundant check but ok
                     console.error("Meta OAuth: DB not available");
                     return res.redirect("/settings?tab=distribution&error=db_error");
                 }
@@ -181,18 +160,25 @@ export function registerMetaRoutes(app: Express) {
     });
 
     // 3. Webhook Handling
-    app.get("/api/meta/webhook", (req: Request, res: Response) => {
+    app.get("/api/meta/webhook", async (req: Request, res: Response) => {
         const mode = req.query["hub.mode"];
         const token = req.query["hub.verify_token"];
         const challenge = req.query["hub.challenge"];
 
-        // Verify Token should be setting or ENV
-        const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN || "imagine_crm_verify";
+        try {
+            const database = await db.getDb();
+            const settings = await getOrCreateAppSettings(database);
+            // Verify Token should be setting or ENV
+            const verifyToken = settings.metaConfig?.verifyToken || process.env.META_WEBHOOK_VERIFY_TOKEN || "imagine_crm_verify";
 
-        if (mode === "subscribe" && token === verifyToken) {
-            res.status(200).send(challenge);
-        } else {
-            res.sendStatus(403);
+            if (mode === "subscribe" && token === verifyToken) {
+                res.status(200).send(challenge);
+            } else {
+                res.sendStatus(403);
+            }
+        } catch (e) {
+            console.error(e);
+            res.sendStatus(500);
         }
     });
 

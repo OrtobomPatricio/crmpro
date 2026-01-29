@@ -157,6 +157,11 @@ function SettingsContent() {
     chatDistributionConfig: {
       mode: "manual" as "manual" | "round_robin" | "all_agents",
       excludeAgentIds: [] as number[],
+    },
+    metaConfig: {
+      appId: "",
+      appSecret: "",
+      verifyToken: "imagine_crm_verify",
     }
   });
 
@@ -206,6 +211,11 @@ function SettingsContent() {
         mode: "manual",
         excludeAgentIds: [],
       },
+      metaConfig: (settingsQuery.data as any).metaConfig ?? {
+        appId: "",
+        appSecret: "", // Masked from backend
+        verifyToken: "imagine_crm_verify"
+      },
     });
 
     setMatrixText(JSON.stringify(initialMatrix, null, 2));
@@ -228,6 +238,7 @@ function SettingsContent() {
         mode: form.chatDistributionConfig.mode as "manual" | "round_robin" | "all_agents",
         excludeAgentIds: form.chatDistributionConfig.excludeAgentIds,
       },
+      metaConfig: form.metaConfig,
     });
   };
 
@@ -577,6 +588,35 @@ function SettingsContent() {
                 >
                   Conectar con Facebook
                 </Button>
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Facebook App ID</Label>
+                <Input
+                  value={form.metaConfig?.appId || ""}
+                  onChange={(e) => setForm((p) => ({ ...p, metaConfig: { ...p.metaConfig, appId: e.target.value } }))}
+                  placeholder="App ID de Meta Developer"
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Facebook App Secret</Label>
+                <Input
+                  type="password"
+                  value={form.metaConfig?.appSecret || ""}
+                  onChange={(e) => setForm((p) => ({ ...p, metaConfig: { ...p.metaConfig, appSecret: e.target.value } }))}
+                  placeholder={(settingsQuery.data as any)?.metaConfig?.hasAppSecret ? "•••••••• (Guardado)" : "App Secret"}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Webhook Verify Token</Label>
+                <Input
+                  readOnly
+                  value={form.metaConfig?.verifyToken || "imagine_crm_verify"}
+                  className="bg-muted text-muted-foreground"
+                />
+                <p className="text-xs text-muted-foreground">Usa este token al configurar el webhook en el panel de desarrolladores de Facebook.</p>
               </div>
 
               <Separator />

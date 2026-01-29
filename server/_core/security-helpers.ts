@@ -43,6 +43,16 @@ export function sanitizeAppSettings(settings: any) {
         };
     }
 
+    if (s.metaConfig) {
+        const appSecret = s.metaConfig.appSecret;
+        s.metaConfig = {
+            ...s.metaConfig,
+            appSecret: null,
+            hasAppSecret: !!appSecret,
+            appSecretMasked: maskSecret(appSecret),
+        };
+    }
+
     return s;
 }
 

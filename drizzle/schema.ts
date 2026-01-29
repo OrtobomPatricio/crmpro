@@ -110,6 +110,13 @@ export const appSettings = mysqlTable("app_settings", {
     sessionTimeoutMinutes?: number;
   }>(),
 
+  // Meta / WhatsApp Configuration (Dynamic)
+  metaConfig: json("metaConfig").$type<{
+    appId?: string;
+    appSecret?: string;
+    verifyToken?: string;
+  }>(),
+
   // Chat Distribution Configuration
   chatDistributionConfig: json("chatDistributionConfig").$type<{
     mode: "manual" | "round_robin" | "all_agents";

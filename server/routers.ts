@@ -24,6 +24,7 @@ import { distributeConversation } from "./services/distribution";
 import { logAccess, getClientIp } from "./services/security";
 import { createBackup, restoreBackup, validateBackupFile, leadsToCSV, parseCSV, importLeadsFromCSV } from "./services/backup";
 // sanitizeAppSettings imported above at line 5
+import { getOrCreateAppSettings, updateAppSettings } from "./services/app-settings";
 
 
 export const appRouter = router({
@@ -281,11 +282,33 @@ export const appRouter = router({
               requireValueOnWon: z.boolean(),
             })
             .optional(),
+          metaConfig: z
+            .object({
+              appId: z.string().optional(),
+              appSecret: z.string().optional(),
+              verifyToken: z.string().optional(),
+            })
+            .optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("Database not available");
+
+        // Fetch current settings for secure merge (especially for secrets)
+        const currentSettings = await getOrCreateAppSettings(db);
+
+        let metaConfigUpdate = undefined;
+        if (input.metaConfig) {
+          const prevMeta = (currentSettings.metaConfig as Record<string, any>) ?? {};
+          metaConfigUpdate = {
+            ...prevMeta,
+            ...(input.metaConfig.appId !== undefined ? { appId: input.metaConfig.appId } : {}),
+            ...(input.metaConfig.verifyToken !== undefined ? { verifyToken: input.metaConfig.verifyToken } : {}),
+            // Only update secret if provided (allow empty string to clear? or just trim check)
+            ...(input.metaConfig.appSecret && input.metaConfig.appSecret.trim() ? { appSecret: input.metaConfig.appSecret.trim() } : {}),
+          };
+        }
 
         await updateAppSettings(db, {
           companyName: input.companyName,
@@ -297,6 +320,7 @@ export const appRouter = router({
           slaConfig: input.slaConfig,
           chatDistributionConfig: input.chatDistributionConfig,
           salesConfig: input.salesConfig,
+          ...(metaConfigUpdate ? { metaConfig: metaConfigUpdate } : {}),
         });
 
         return { success: true } as const;
@@ -1356,7 +1380,7 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("Database not available");
         const parsed = parseCSV(input.csvContent);
-        const result = await importLeadsFromCSV(db, parsed, ctx.user?.id);
+        const result = await importLeadsFromCSV(parsed);
         return result;
       }),
 
