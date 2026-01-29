@@ -808,23 +808,7 @@ function SettingsContent() {
           <SecurityTabContent />
         </TabsContent>
 
-        <TabsContent value="perms" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Permisos avanzados</CardTitle>
-              <CardDescription>
-                Define qué puede hacer cada rol en el sistema.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <PermissionsMatrixEditor
-                initialMatrix={initialMatrix}
-                onSave={(m) => updatePerms.mutate({ permissionsMatrix: m })}
-                isLoading={updatePerms.isPending}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
+
       </Tabs>
     </div>
   );
