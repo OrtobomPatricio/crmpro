@@ -318,7 +318,7 @@ function SettingsContent() {
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="team">Usuarios</TabsTrigger>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="distribution">Distribución</TabsTrigger>
+          <TabsTrigger value="distribution">Conexiones</TabsTrigger>
           <TabsTrigger value="sales">Ventas</TabsTrigger>
           <TabsTrigger value="security">Seguridad</TabsTrigger>
           <TabsTrigger value="perms" disabled={role !== "owner"}>Permisos</TabsTrigger>
@@ -535,6 +535,73 @@ function SettingsContent() {
               </div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Distribución de Chats</CardTitle>
+              <CardDescription>Configura cómo se asignan las nuevas conversaciones a los agentes.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-2">
+                <Label>Modo de Asignación</Label>
+                <Select
+                  value={form.chatDistributionConfig.mode}
+                  onValueChange={(v: any) => setForm(p => ({
+                    ...p,
+                    chatDistributionConfig: { ...p.chatDistributionConfig, mode: v }
+                  }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manual">Manual (Sin asignación automática)</SelectItem>
+                    <SelectItem value="round_robin">Round Robin (Cíclico)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {form.chatDistributionConfig.mode === 'round_robin' && (
+                <div className="space-y-2 border rounded-lg p-4">
+                  <Label>Excluir Agentes del Ciclo</Label>
+                  <p className="text-sm text-muted-foreground">Selecciona quiénes NO deben recibir chats automáticamente.</p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                    {(teamQuery.data ?? []).filter(u => u.isActive && u.role !== 'viewer').map(u => {
+                      const isExcluded = form.chatDistributionConfig.excludeAgentIds.includes(u.id);
+                      return (
+                        <div key={u.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`exclude-${u.id}`}
+                            checked={isExcluded}
+                            onCheckedChange={(c) => {
+                              setForm(p => {
+                                const current = p.chatDistributionConfig.excludeAgentIds;
+                                const next = c
+                                  ? [...current, u.id]
+                                  : current.filter(id => id !== u.id);
+                                return {
+                                  ...p,
+                                  chatDistributionConfig: { ...p.chatDistributionConfig, excludeAgentIds: next }
+                                };
+                              });
+                            }}
+                          />
+                          <Label htmlFor={`exclude-${u.id}`} className="font-normal cursor-pointer">
+                            {u.name ?? u.email}
+                          </Label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <Button onClick={saveGeneral} disabled={updateGeneral.isPending}>
+                {updateGeneral.isPending ? "Guardando..." : "Guardar Configuración"}
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="perms" className="space-y-4">
@@ -605,8 +672,8 @@ function SettingsContent() {
         <TabsContent value="distribution">
           <Card>
             <CardHeader>
-              <CardTitle>Distribución de Chats</CardTitle>
-              <CardDescription>Configura cómo se asignan las nuevas conversaciones.</CardDescription>
+              <CardTitle>Conexiones de WhatsApp</CardTitle>
+              <CardDescription>Administra tus cuentas de WhatsApp Business conectadas.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* WhatsApp OAuth Section */}
@@ -621,7 +688,7 @@ function SettingsContent() {
                   onClick={() => window.location.href = "/api/meta/connect"}
                   className="bg-[#1877F2] hover:bg-[#166fe5]"
                 >
-                  Conectar con Facebook
+                  + Agregar Cuenta
                 </Button>
               </div>
 
@@ -654,63 +721,6 @@ function SettingsContent() {
                 <p className="text-xs text-muted-foreground">Usa este token al configurar el webhook en el panel de desarrolladores de Facebook.</p>
               </div>
 
-              <Separator />
-
-              <div className="grid gap-2">
-                <Label>Modo de Asignación</Label>
-                <Select
-                  value={form.chatDistributionConfig.mode}
-                  onValueChange={(v: any) => setForm(p => ({
-                    ...p,
-                    chatDistributionConfig: { ...p.chatDistributionConfig, mode: v }
-                  }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="manual">Manual (Sin asignación automática)</SelectItem>
-                    <SelectItem value="round_robin">Round Robin (Cíclico)</SelectItem>
-                    {/* <SelectItem value="all_agents">Todos (Broadcast)</SelectItem> */}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {form.chatDistributionConfig.mode === 'round_robin' && (
-                <div className="space-y-2 border rounded-lg p-4">
-                  <Label>Excluir Agentes del Ciclo</Label>
-                  <p className="text-sm text-muted-foreground">Selecciona quiénes NO deben recibir chats automáticamente.</p>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
-                    {(teamQuery.data ?? []).filter(u => u.isActive && u.role !== 'viewer').map(u => {
-                      const isExcluded = form.chatDistributionConfig.excludeAgentIds.includes(u.id);
-                      return (
-                        <div key={u.id} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`exclude-${u.id}`}
-                            checked={isExcluded}
-                            onCheckedChange={(c) => {
-                              setForm(p => {
-                                const current = p.chatDistributionConfig.excludeAgentIds;
-                                const next = c
-                                  ? [...current, u.id]
-                                  : current.filter(id => id !== u.id);
-                                return {
-                                  ...p,
-                                  chatDistributionConfig: { ...p.chatDistributionConfig, excludeAgentIds: next }
-                                };
-                              });
-                            }}
-                          />
-                          <Label htmlFor={`exclude-${u.id}`} className="cursor-pointer">
-                            {u.name} ({u.role})
-                          </Label>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
 
               <div className="flex justify-end pt-4">
                 <Button onClick={saveGeneral} disabled={updateGeneral.isPending}>
