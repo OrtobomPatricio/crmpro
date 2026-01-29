@@ -43,6 +43,8 @@ import {
 
 import { SalesConfigEditor } from "@/components/SalesConfigEditor";
 import { SLAConfigEditor } from "@/components/SLAConfigEditor";
+import { StorageConfigEditor } from "@/components/StorageConfigEditor";
+import { AIConfigEditor } from "@/components/AIConfigEditor";
 import { PermissionsMatrixEditor } from "@/components/PermissionsMatrixEditor";
 import { DashboardConfigEditor } from "@/components/DashboardConfigEditor";
 import { AddUserDialog } from "@/components/AddUserDialog";
@@ -319,7 +321,7 @@ function SettingsContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full h-auto grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-y-2">
+        <TabsList className="grid w-full h-auto grid-cols-2 md:grid-cols-5 lg:grid-cols-10 gap-y-2">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="team">Usuarios</TabsTrigger>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
@@ -327,6 +329,9 @@ function SettingsContent() {
           <TabsTrigger value="sales">Ventas</TabsTrigger>
           <TabsTrigger value="security">Seguridad</TabsTrigger>
           <TabsTrigger value="perms" disabled={role !== "owner"}>Permisos</TabsTrigger>
+          <TabsTrigger value="storage">Almacenamiento</TabsTrigger>
+          <TabsTrigger value="ai">IA</TabsTrigger>
+          <TabsTrigger value="maps">Maps</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-4">
@@ -744,6 +749,50 @@ function SettingsContent() {
           <SecurityTabContent />
         </TabsContent>
 
+
+
+        <TabsContent value="storage" className="space-y-4">
+          <StorageConfigEditor
+            query={settingsQuery}
+            updateMutation={updateGeneral}
+          />
+        </TabsContent>
+
+        <TabsContent value="ai" className="space-y-4">
+          <AIConfigEditor
+            query={settingsQuery}
+            updateMutation={updateGeneral}
+          />
+        </TabsContent>
+
+        <TabsContent value="maps" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Google Maps API</CardTitle>
+              <CardDescription>Configura la API key para funcionalidades de mapas y geolocalización</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="mapsApiKey">API Key de Google Maps</Label>
+                <Input
+                  id="mapsApiKey"
+                  placeholder="AIzaSy..."
+                  value={form.mapsConfig?.apiKey || ""}
+                  onChange={(e) => setForm(p => ({ ...p, mapsConfig: { apiKey: e.target.value } }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Obtén tu API key en Google Cloud Console
+                </p>
+              </div>
+
+              <div className="flex justify-end">
+                <Button onClick={saveGeneral} disabled={updateGeneral.isPending}>
+                  {updateGeneral.isPending ? "Guardando..." : "Guardar Configuración"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
       </Tabs>
     </div>
