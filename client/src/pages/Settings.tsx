@@ -56,6 +56,7 @@ import { BackupRestoreSection, ActivityLogsViewer } from "@/components/SecurityC
 import { CustomFieldsManager } from "@/components/CustomFieldsManager";
 import { AddFacebookDialog } from "@/components/AddFacebookDialog";
 import { FacebookPagesList } from "@/components/FacebookPagesList";
+import { SecurityConfigEditor } from "@/components/SecurityConfigEditor";
 
 const TZ_OPTIONS = [
   "America/Asuncion",
@@ -768,6 +769,10 @@ function SettingsContent() {
         <TabsContent value="security" className="space-y-4">
           <BackupRestoreSection />
           <ActivityLogsViewer />
+          <SecurityConfigEditor
+            query={settingsQuery}
+            updateMutation={updateGeneral}
+          />
           <SecurityTabContent />
         </TabsContent>
 
