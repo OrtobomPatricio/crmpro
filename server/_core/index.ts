@@ -81,6 +81,12 @@ async function startServer() {
     hsts: false, // Disable HSTS for HTTP-only VPS access
   }));
 
+  // Force removal of HSTS header just in case
+  app.use((_req, res, next) => {
+    res.removeHeader("Strict-Transport-Security");
+    next();
+  });
+
   app.use(cors({
     origin: (origin, callback) => {
       // Allow localhost in development
