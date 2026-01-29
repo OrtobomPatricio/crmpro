@@ -71,6 +71,7 @@ async function startServer() {
         defaultSrc: ["'self'"],
         // CSP: Allow unsafe-inline/eval to support Vite runtime & hydration
         scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://maps.googleapis.com"],
+        upgradeInsecureRequests: null,
         imgSrc: ["'self'", "data:", "blob:", "https://*.googleusercontent.com", "https://maps.gstatic.com"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
