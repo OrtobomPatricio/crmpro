@@ -90,9 +90,9 @@ async function startServer() {
       }
 
       // Production strict check
-      // 5.1 en prod: NO aceptar origin vacío para rutas con cookie/credentials
+      // 5.1 en prod: SI aceptar origin vacío (navegación normal, curl, mobile apps)
       if (!origin) {
-        return callback(new Error("Origin required"), false);
+        return callback(null, true);
       }
 
       const allowedOrigins = [process.env.CLIENT_URL, process.env.VITE_API_URL].filter(Boolean);
