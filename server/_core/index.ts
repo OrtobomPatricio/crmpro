@@ -81,6 +81,8 @@ async function startServer() {
     },
     crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin for images if needed
     hsts: false, // Disable HSTS for HTTP-only VPS access
+    crossOriginOpenerPolicy: false, // Disable COOP to prevent warnings on HTTP
+    originAgentCluster: false, // Disable Origin-Agent-Cluster to prevent warnings on HTTP
   }));
 
   // Force removal of HSTS header just in case
