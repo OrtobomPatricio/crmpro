@@ -7,6 +7,7 @@ import helmet from "helmet";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerWhatsAppWebhookRoutes } from "../whatsapp/webhook";
+import { registerMetaRoutes } from "../meta-routes";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic } from "./serve-static";
@@ -226,6 +227,9 @@ async function startServer() {
 
   // WhatsApp Cloud API webhook
   registerWhatsAppWebhookRoutes(app);
+
+  // Meta OAuth & Webhook
+  registerMetaRoutes(app);
 
   // --- FILE UPLOAD ENDPOINT (SECURED) ---
   // Store uploads outside the webroot for security

@@ -42,6 +42,9 @@ import {
 } from "@/components/ui/table";
 
 import { SalesConfigEditor } from "@/components/SalesConfigEditor";
+import { PermissionsMatrixEditor } from "@/components/PermissionsMatrixEditor";
+import { DashboardConfigEditor } from "@/components/DashboardConfigEditor";
+import { AddUserDialog } from "@/components/AddUserDialog";
 
 const TZ_OPTIONS = [
   "America/Asuncion",
@@ -237,6 +240,28 @@ function SettingsContent() {
     }
   };
 
+  const search = useSearch();
+  const [activeTab, setActiveTab] = useState("general");
+
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const tab = params.get("tab");
+    if (tab && ["general", "team", "dashboard", "distribution", "security", "perms", "sla"].includes(tab)) {
+      setActiveTab(tab);
+    }
+
+    // Handle OAuth Toasts
+    if (params.get("success") === "meta_connected") {
+      toast.success("WhatsApp conectado correctamente");
+      // Clean URL
+      window.history.replaceState(null, "", window.location.pathname + "?tab=distribution");
+    }
+    if (params.get("error")) {
+      toast.error("Error conectando con Meta: " + params.get("error"));
+      window.history.replaceState(null, "", window.location.pathname + "?tab=distribution");
+    }
+  }, [search]);
+
   if (settingsQuery.isLoading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -258,17 +283,6 @@ function SettingsContent() {
       </Card>
     );
   }
-
-  const search = useSearch();
-  const [activeTab, setActiveTab] = useState("general");
-
-  useEffect(() => {
-    const params = new URLSearchParams(search);
-    const tab = params.get("tab");
-    if (tab && ["general", "team", "dashboard", "distribution", "security", "perms", "sla"].includes(tab)) {
-      setActiveTab(tab);
-    }
-  }, [search]);
 
   return (
     <div className="space-y-4">
@@ -549,6 +563,24 @@ function SettingsContent() {
               <CardDescription>Configura cómo se asignan las nuevas conversaciones.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* WhatsApp OAuth Section */}
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <Label className="text-base">WhatsApp Cloud API</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Conecta tu cuenta de WhatsApp Business para recibir mensajes.
+                  </p>
+                </div>
+                <Button
+                  onClick={() => window.location.href = "/api/meta/connect"}
+                  className="bg-[#1877F2] hover:bg-[#166fe5]"
+                >
+                  Conectar con Facebook
+                </Button>
+              </div>
+
+              <Separator />
+
               <div className="grid gap-2">
                 <Label>Modo de Asignación</Label>
                 <Select
@@ -650,447 +682,6 @@ function SettingsContent() {
 
 
 
-function DashboardConfigEditor() {
-  const query = trpc.settings.get.useQuery();
-  const utils = trpc.useUtils();
-  const mutation = trpc.settings.updateDashboardConfig.useMutation({
-    onSuccess: () => {
-      toast.success("Dashboard actualizado");
-      utils.settings.get.invalidate();
-    }
-  });
 
-  const [config, setConfig] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    if (query.data?.dashboardConfig) {
-      setConfig(query.data.dashboardConfig as Record<string, boolean>);
-    }
-  }, [query.data]);
-
-  // Default actions list (mirrored from Dashboard.tsx - ideally shared)
-  const actions = [
-    { key: "leads", label: "Gestionar Leads" },
-    { key: "campaigns", label: "Crear Campaña" },
-    { key: "conversations", label: "Conversaciones" },
-    { key: "attendants", label: "Atendentes" },
-    { key: "health", label: "Salud de Cuentas" },
-    { key: "whatsapp", label: "Cuentas WhatsApp" },
-    { key: "integrations", label: "Integraciones" },
-    { key: "kanban", label: "Kanban Board" },
-    { key: "commissions", label: "Comisiones" },
-    { key: "goals", label: "Metas de Vendas" },
-    { key: "achievements", label: "Logros" },
-    { key: "warmup", label: "Warm-up" },
-    { key: "analytics", label: "Analytics" },
-    { key: "scheduling", label: "Agendamiento" },
-    { key: "monitoring", label: "Monitoreo en Vivo" },
-  ];
-
-  const handleToggle = (key: string, val: boolean) => {
-    const next = { ...config, [key]: val };
-    setConfig(next);
-    mutation.mutate(next);
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Personalizar Dashboard</CardTitle>
-        <CardDescription>Oculta o muestra las tarjetas de acceso rápido.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {actions.map(action => (
-            <div key={action.key} className="flex items-center gap-2 border p-3 rounded-lg">
-              <Switch
-                checked={config[action.key] !== false} // Default true
-                onCheckedChange={(c) => handleToggle(action.key, c)}
-              />
-              <span className="text-sm font-medium">{action.label}</span>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function AddUserDialog({ onSuccess }: { onSuccess: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [isInvite, setIsInvite] = useState(true); // Default to invite
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    role: "agent" as "admin" | "supervisor" | "agent" | "viewer",
-  });
-
-  const createUser = trpc.team.create.useMutation({
-    onSuccess: () => {
-      toast.success("Usuario creado exitosamente");
-      setOpen(false);
-      setFormData({ name: "", email: "", password: "", role: "agent" });
-      onSuccess();
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
-  const inviteUser = trpc.team.invite.useMutation({
-    onSuccess: () => {
-      toast.success("Invitación enviada exitosamente");
-      setOpen(false);
-      setFormData({ name: "", email: "", password: "", role: "agent" });
-      onSuccess();
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
-  const handleSubmit = () => {
-    if (!formData.name || !formData.email) {
-      toast.error("Nombre y Email son requeridos");
-      return;
-    }
-
-    if (isInvite) {
-      inviteUser.mutate({
-        name: formData.name,
-        email: formData.email,
-        role: formData.role
-      });
-    } else {
-      if (!formData.password) {
-        toast.error("La contraseña es requerida para creación manual");
-        return;
-      }
-      createUser.mutate(formData);
-    }
-  };
-
-  const isPending = createUser.isPending || inviteUser.isPending;
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm">
-          <Plus className="w-4 h-4 mr-2" />
-          Agregar Usuario
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Nuevo Usuario</DialogTitle>
-          <DialogDescription>
-            Invitá a un miembro del equipo o crealo manualmente.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex items-center space-x-2 pb-4">
-          <Switch id="invite-mode" checked={isInvite} onCheckedChange={setIsInvite} />
-          <Label htmlFor="invite-mode">Enviar invitación por correo</Label>
-        </div>
-
-        <div className="grid gap-4 py-2">
-          <div className="grid gap-2">
-            <Label htmlFor="name">Nombre</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData(p => ({ ...p, name: e.target.value }))}
-              placeholder="Juan Pérez"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData(p => ({ ...p, email: e.target.value }))}
-              placeholder="juan@empresa.com"
-            />
-          </div>
-
-          {!isInvite && (
-            <div className="grid gap-2">
-              <Label htmlFor="password">Contraseña</Label>
-              <Input
-                id="password"
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData(p => ({ ...p, password: e.target.value }))}
-                placeholder="••••••••"
-              />
-            </div>
-          )}
-
-          <div className="grid gap-2">
-            <Label>Rol</Label>
-            <Select
-              value={formData.role}
-              onValueChange={(v) => setFormData(p => ({ ...p, role: v as any }))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="supervisor">Supervisor</SelectItem>
-                <SelectItem value="agent">Agente</SelectItem>
-                <SelectItem value="viewer">Solo lectura</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button onClick={handleSubmit} disabled={isPending}>
-            {isPending ? "Procesando..." : (isInvite ? "Enviar Invitación" : "Crear Usuario")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-
-function PermissionsMatrixEditor({
-  initialMatrix,
-  onSave,
-  isLoading
-}: {
-  initialMatrix: Record<string, string[]>,
-  onSave: (m: Record<string, string[]>) => void,
-  isLoading: boolean
-}) {
-  const [matrix, setMatrix] = useState(initialMatrix);
-  const [newRoleName, setNewRoleName] = useState("");
-  const [isAdding, setIsAdding] = useState(false);
-
-  useEffect(() => {
-    setMatrix(initialMatrix);
-  }, [initialMatrix]);
-
-  const roles = useMemo(() => {
-    const standard = ["admin", "supervisor", "agent", "viewer"];
-    const custom = Object.keys(matrix).filter(r => !standard.includes(r) && r !== 'owner').sort();
-    return [...standard, ...custom];
-  }, [matrix]);
-
-  const DOMAINS = [
-    { key: "dashboard", label: "Dashboard", actions: ["view"] },
-    { key: "leads", label: "Leads", actions: ["view", "create", "update", "delete"] },
-    { key: "kanban", label: "Kanban", actions: ["view", "create", "update", "delete"] },
-    { key: "chat", label: "Chat", actions: ["view", "send"] },
-    { key: "campaigns", label: "Campañas", actions: ["view", "create", "update", "delete"] },
-    { key: "scheduling", label: "Agenda", actions: ["view", "create", "update", "delete"] },
-    { key: "monitoring", label: "Monitoreo", actions: ["view", "manage"] },
-    { key: "analytics", label: "Analíticas", actions: ["view"] },
-    { key: "reports", label: "Reportes", actions: ["view", "export"] },
-    { key: "integrations", label: "Integraciones", actions: ["view", "manage"] },
-    { key: "settings", label: "Configuración", actions: ["view", "manage"] },
-    { key: "users", label: "Usuarios", actions: ["view", "manage"] },
-  ];
-
-  const ACTION_LABELS: Record<string, string> = {
-    view: "Ver",
-    create: "Crear",
-    update: "Editar",
-    delete: "Eliminar",
-    send: "Enviar",
-    export: "Exportar",
-    manage: "Gestionar"
-  };
-
-  const hasPermission = (role: string, domain: string, action: string) => {
-    const perms = matrix[role] || [];
-    if (perms.includes("*")) return true;
-    if (perms.includes(`${domain}.*`)) return true;
-    return perms.includes(`${domain}.${action}`);
-  };
-
-  const togglePermission = (role: string, domain: string, action: string, checked: boolean) => {
-    setMatrix(prev => {
-      let current = [...(prev[role] || [])];
-      const wildcard = `${domain}.*`;
-      const specific = `${domain}.${action}`;
-
-      if (current.includes("*")) return prev;
-
-      if (checked) {
-        if (!current.includes(specific) && !current.includes(wildcard)) {
-          current.push(specific);
-        }
-      } else {
-        if (current.includes(wildcard)) {
-          current = current.filter(p => p !== wildcard);
-          const domainConfig = DOMAINS.find(d => d.key === domain);
-          if (domainConfig) {
-            domainConfig.actions.forEach(a => {
-              if (a !== action) current.push(`${domain}.${a}`);
-            });
-          }
-        } else {
-          current = current.filter(p => p !== specific);
-        }
-      }
-      return { ...prev, [role]: current };
-    });
-  };
-
-  const toggleAllInDomain = (role: string, domain: string, checked: boolean) => {
-    setMatrix(prev => {
-      let current = [...(prev[role] || [])];
-      const wildcard = `${domain}.*`;
-
-      if (current.includes("*")) return prev;
-
-      current = current.filter(p => !p.startsWith(`${domain}.`));
-
-      if (checked) {
-        current.push(wildcard);
-      }
-
-      return { ...prev, [role]: current };
-    });
-  };
-
-  const addRole = () => {
-    if (!newRoleName.trim()) return;
-    const key = newRoleName.trim().toLowerCase().replace(/\s+/g, "_");
-
-    if (matrix[key] || ["owner", "admin", "supervisor", "agent", "viewer"].includes(key)) {
-      toast.error("El rol ya existe o es reservado");
-      return;
-    }
-
-    setMatrix(prev => ({ ...prev, [key]: [] }));
-    setNewRoleName("");
-    setIsAdding(false);
-    toast.success(`Rol "${newRoleName}" agregado`);
-  };
-
-  const deleteRole = (role: string) => {
-    if (confirm(`¿Estás seguro de eliminar el rol "${role}"?`)) {
-      setMatrix(prev => {
-        const next = { ...prev };
-        delete next[role];
-        return next;
-      });
-      toast.success("Rol eliminado");
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center bg-muted/20 p-2 rounded-md">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">Roles Personalizados:</span>
-          {!isAdding ? (
-            <Button size="sm" variant="outline" onClick={() => setIsAdding(true)}>
-              <Plus className="w-3 h-3 mr-1" /> Nuevo Rol
-            </Button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Input
-                value={newRoleName}
-                onChange={e => setNewRoleName(e.target.value)}
-                placeholder="Nombre del rol"
-                className="h-8 w-40"
-                autoFocus
-                onKeyDown={e => e.key === 'Enter' && addRole()}
-              />
-              <Button size="sm" onClick={addRole}>Crear</Button>
-              <Button size="sm" variant="ghost" onClick={() => setIsAdding(false)}>Cancelar</Button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <Tabs defaultValue="agent" className="w-full">
-        <TabsList className="flex flex-wrap h-auto gap-1 bg-transparent p-0 justify-start">
-          {roles.map(role => (
-            <div key={role} className="relative group">
-              <TabsTrigger
-                value={role}
-                className="capitalize data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border"
-              >
-                {role}
-              </TabsTrigger>
-              {!["admin", "supervisor", "agent", "viewer"].includes(role) && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteRole(role);
-                  }}
-                  className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Eliminar rol"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-          ))}
-        </TabsList>
-
-        {roles.map(role => (
-          <TabsContent key={role} value={role} className="mt-4">
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[180px]">Módulo</TableHead>
-                    <TableHead className="text-center">Todo</TableHead>
-                    <TableHead>Acciones Específicas</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {DOMAINS.map((domain) => {
-                    const allChecked = matrix[role]?.includes(`${domain}.*`) || matrix[role]?.includes("*");
-
-                    return (
-                      <TableRow key={domain.key}>
-                        <TableCell className="font-medium">{domain.label}</TableCell>
-                        <TableCell className="text-center">
-                          <Checkbox
-                            checked={allChecked}
-                            onCheckedChange={(c) => toggleAllInDomain(role, domain.key, c as boolean)}
-                            disabled={matrix[role]?.includes("*")}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-4">
-                            {domain.actions.map(action => (
-                              <div key={action} className="flex items-center space-x-2">
-                                <Checkbox
-                                  id={`${role}-${domain.key}-${action}`}
-                                  checked={hasPermission(role, domain.key, action)}
-                                  onCheckedChange={(c) => togglePermission(role, domain.key, action, c as boolean)}
-                                  disabled={allChecked || matrix[role]?.includes("*")}
-                                />
-                                <Label htmlFor={`${role}-${domain.key}-${action}`} className="cursor-pointer">
-                                  {ACTION_LABELS[action]}
-                                </Label>
-                              </div>
-                            ))}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </TabsContent>
-        ))}
-      </Tabs>
-
-      <div className="flex justify-end">
-        <Button onClick={() => onSave(matrix)} disabled={isLoading}>
-          {isLoading ? "Guardando..." : "Guardar Cambios"}
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 

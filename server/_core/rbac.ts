@@ -1,5 +1,11 @@
 export type Role = "owner" | "admin" | "supervisor" | "agent" | "viewer";
 
+// Definimos la jerarquía de roles built-in para evitar escalación (escalation)
+// Un usuario con rol base inferior no debería poder adquirir rol custom que eleve privilegios, 
+// PERO en este diseño, el 'customRole' es simplemente un set de permisos que reemplaza a la matriz por defecto.
+// La seguridad recae en quién asigna el rol. Solo el Admin/Owner puede asignar roles custom.
+// Por ende, si un admin le asigna un rol "SupervisorPower" a un "Agent", es intencional.
+
 const BUILTIN_RANK: Record<string, number> = {
     viewer: 0,
     agent: 1,
@@ -15,33 +21,32 @@ export function computeEffectiveRole(args: {
 }) {
     const base = (args.baseRole || "agent").trim();
 
-    // owner nunca se degrada
+    // Owner siempre es Owner, no se degrada por custom role
     if (base === "owner") return "owner";
 
     const custom = (args.customRole || "").trim();
     if (!custom) return base;
 
-    // customRole solo si existe en la matriz
+    // customRole solo es válido si existe en la matriz de permisos
     if (!Object.prototype.hasOwnProperty.call(args.permissionsMatrix, custom)) return base;
 
-    // prohibido elevar a owner
+    // Prohibido elevar a owner mediante custom role
     if (custom === "owner") return base;
 
-    // evitar escalamiento entre roles built-in
+    // Si custom es un rol built-in (ej. 'admin'), verificamos escalación
+    // Esto previene que si por error se asigna 'admin' en customRole a un 'agent', no surta efecto si hay reglas automáticas.
+    // Sin embargo, si la asignación es manual por un admin, debería valer. 
+    // Mantenemos la protección de no escalar a un built-in role superior via customRole por seguridad.
     const baseRank = BUILTIN_RANK[base] ?? 0;
     const customRank = BUILTIN_RANK[custom];
 
-    // si custom es built-in y escala, bloquea
-    if (typeof customRank === "number" && customRank > baseRank) return base;
+    if (typeof customRank === "number" && customRank > baseRank) {
+        // Bloquear escalación a rol built-in superior (ej. Agente -> Admin) via customRole 
+        // Si se quiere promocionar, se debe cambiar el baseRole.
+        return base;
+    }
 
-    // si custom NO es built-in (rol “custom”), solo permitilo si base es admin
-    // AJUSTE: o si es el owner quien lo asignó (que ya se valida en el update), 
-    // pero aqui en runtime, un agente no deberia tener un rol custom que le de mas permisos que su base?
-    // La regla original dice: "si custom NO es built-in... solo permitilo si base es admin"
-    // Esto asume que un "Admin" es el único que puede tener roles custom poderosos?
-    // Si un Supervisor tiene un rol custom "SupervisorPower", ¿debería permitirse?
-    // Siguiendo la instrucción estricta:
-    if (typeof customRank !== "number" && base !== "admin") return base;
-
+    // Permitir custom role para CUALQUIER base role (siempre que no sean owner o escalación built-in)
+    // El objetivo es permitir roles como "Agente de Ventas VIP" o "Supervisor de Soporte"
     return custom;
 }
