@@ -45,6 +45,8 @@ import { SalesConfigEditor } from "@/components/SalesConfigEditor";
 import { PermissionsMatrixEditor } from "@/components/PermissionsMatrixEditor";
 import { DashboardConfigEditor } from "@/components/DashboardConfigEditor";
 import { AddUserDialog } from "@/components/AddUserDialog";
+import { AddWhatsAppDialog } from "@/components/AddWhatsAppDialog";
+import { WhatsAppConnectionsList } from "@/components/WhatsAppConnectionsList";
 
 const TZ_OPTIONS = [
   "America/Asuncion",
@@ -737,61 +739,16 @@ function SettingsContent() {
         <TabsContent value="distribution">
           <Card>
             <CardHeader>
-              <CardTitle>Conexiones de WhatsApp</CardTitle>
-              <CardDescription>Administra tus cuentas de WhatsApp Business conectadas.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* WhatsApp OAuth Section */}
-              <div className="flex items-center justify-between rounded-lg border p-4">
-                <div className="space-y-0.5">
-                  <Label className="text-base">WhatsApp Cloud API</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Conecta tu cuenta de WhatsApp Business para recibir mensajes.
-                  </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Conexiones de WhatsApp</CardTitle>
+                  <CardDescription>Administra tus cuentas de WhatsApp Business conectadas.</CardDescription>
                 </div>
-                <Button
-                  onClick={() => window.location.href = "/api/meta/connect"}
-                  className="bg-[#1877F2] hover:bg-[#166fe5]"
-                >
-                  + Agregar Cuenta
-                </Button>
+                <AddWhatsAppDialog />
               </div>
-
-              <div className="grid gap-2">
-                <Label>Facebook App ID</Label>
-                <Input
-                  value={form.metaConfig?.appId || ""}
-                  onChange={(e) => setForm((p) => ({ ...p, metaConfig: { ...p.metaConfig, appId: e.target.value } }))}
-                  placeholder="App ID de Meta Developer"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label>Facebook App Secret</Label>
-                <Input
-                  type="password"
-                  value={form.metaConfig?.appSecret || ""}
-                  onChange={(e) => setForm((p) => ({ ...p, metaConfig: { ...p.metaConfig, appSecret: e.target.value } }))}
-                  placeholder={(settingsQuery.data as any)?.metaConfig?.hasAppSecret ? "•••••••• (Guardado)" : "App Secret"}
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label>Webhook Verify Token</Label>
-                <Input
-                  readOnly
-                  value={form.metaConfig?.verifyToken || "imagine_crm_verify"}
-                  className="bg-muted text-muted-foreground"
-                />
-                <p className="text-xs text-muted-foreground">Usa este token al configurar el webhook en el panel de desarrolladores de Facebook.</p>
-              </div>
-
-
-              <div className="flex justify-end pt-4">
-                <Button onClick={saveGeneral} disabled={updateGeneral.isPending}>
-                  {updateGeneral.isPending ? "Guardando..." : "Guardar Configuración"}
-                </Button>
-              </div>
+            </CardHeader>
+            <CardContent>
+              <WhatsAppConnectionsList />
             </CardContent>
           </Card>
         </TabsContent>

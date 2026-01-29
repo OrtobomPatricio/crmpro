@@ -33,53 +33,129 @@ export const appRouter = router({
 
   // WhatsApp Management
   whatsapp: router({
+    list: permissionProcedure("settings.view")
+      .query(async () => {
+        const db = await getDb();
+        if (!db) return [];
+
+        // Join connections with numbers to get full details
+        const connections = await db
+          .select({
+            id: whatsappConnections.id,
+            phoneNumberId: whatsappConnections.phoneNumberId,
+            businessAccountId: whatsappConnections.businessAccountId,
+            isConnected: whatsappConnections.isConnected,
+            lastPingAt: whatsappConnections.lastPingAt,
+            createdAt: whatsappConnections.createdAt,
+            number: {
+              id: whatsappNumbers.id,
+              phoneNumber: whatsappNumbers.phoneNumber,
+              displayName: whatsappNumbers.displayName,
+              status: whatsappNumbers.status,
+            }
+          })
+          .from(whatsappConnections)
+          .leftJoin(whatsappNumbers, eq(whatsappConnections.whatsappNumberId, whatsappNumbers.id))
+          .orderBy(whatsappConnections.createdAt);
+
+        return connections;
+      }),
+
     connect: permissionProcedure("settings.manage")
       .input(z.object({
-        phoneNumberId: z.string(),
-        accessToken: z.string(),
-        businessAccountId: z.string().optional(),
+        displayName: z.string().min(1).max(100),
+        phoneNumber: z.string().min(5).max(20),
+        phoneNumberId: z.string().min(1),
+        accessToken: z.string().min(1),
+        businessAccountId: z.string().min(1),
       }))
       .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("Database not available");
 
-        // Simple validation of token could be done here by calling graph api
-        // For now, just save.
+        // Check if connection already exists with this phoneNumberId
+        const existingConnection = await db
+          .select()
+          .from(whatsappConnections)
+          .where(eq(whatsappConnections.phoneNumberId, input.phoneNumberId))
+          .limit(1);
 
-        // We need a unique whatsappNumberId.
-        // For now, let's just use a hash or random number if we don't have a real one from an earlier step.
-        // Wait, the schema has whatsappNumberId as unique int.
-        // We should probably fetch the phone number details from Graph API to get the real ID or just auto-increment if it's our internal ID?
-        // The schema says `whatsappNumberId` (int) and `phoneNumberId` (string).
-        // Let's assume we create a new entry.
-
-        // Check if exists
-        const existing = await db.select().from(whatsappConnections).where(eq(whatsappConnections.phoneNumberId, input.phoneNumberId)).limit(1);
-
-        if (existing.length > 0) {
+        if (existingConnection.length > 0) {
+          // Update existing connection
           await db.update(whatsappConnections).set({
             accessToken: input.accessToken,
             businessAccountId: input.businessAccountId,
             isConnected: true,
+            lastPingAt: new Date(),
             updatedAt: new Date()
-          }).where(eq(whatsappConnections.id, existing[0].id));
-        } else {
-          // Generate a pseudo-random ID for whatsappNumberId if not provided?
-          // Actually, `whatsappNumberId` in `whatsappConnections` seems to match `whatsappNumbers.id` maybe?
-          // Let's look at schema again... `whatsappNumberId` is int.
-          // If we don't have `whatsappNumbers` entry, we might need to create one or just use a random int.
-          // Let's use a simple heuristic: check max ID and increment? Or just use a random int for now.
-          // Use timestamp (seconds) to minimize collisions and fit in 32-bit INT
-          const randomId = Math.floor(Date.now() / 1000);
+          }).where(eq(whatsappConnections.id, existingConnection[0].id));
 
-          await db.insert(whatsappConnections).values({
-            whatsappNumberId: randomId,
-            connectionType: "api",
-            phoneNumberId: input.phoneNumberId,
-            accessToken: input.accessToken,
-            businessAccountId: input.businessAccountId,
-            isConnected: true
-          });
+          // Update associated number
+          if (existingConnection[0].whatsappNumberId) {
+            await db.update(whatsappNumbers).set({
+              displayName: input.displayName,
+              phoneNumber: input.phoneNumber,
+              isConnected: true,
+              lastConnected: new Date(),
+              status: "active",
+              updatedAt: new Date()
+            }).where(eq(whatsappNumbers.id, existingConnection[0].whatsappNumberId));
+          }
+
+          return { success: true, id: existingConnection[0].id };
+        }
+
+        // Create new whatsappNumber first
+        const [newNumber] = await db.insert(whatsappNumbers).values({
+          phoneNumber: input.phoneNumber,
+          displayName: input.displayName,
+          country: "Unknown", // Could extract from phone number
+          countryCode: "+", // Could extract from phone number
+          status: "active",
+          isConnected: true,
+          lastConnected: new Date(),
+          dailyMessageLimit: 1000,
+          messagesSentToday: 0,
+          totalMessagesSent: 0,
+        }).$returningId();
+
+        // Create connection
+        const [newConnection] = await db.insert(whatsappConnections).values({
+          whatsappNumberId: newNumber.id,
+          connectionType: "api",
+          phoneNumberId: input.phoneNumberId,
+          accessToken: input.accessToken,
+          businessAccountId: input.businessAccountId,
+          isConnected: true,
+          lastPingAt: new Date(),
+        }).$returningId();
+
+        return { success: true, id: newConnection.id };
+      }),
+
+    delete: permissionProcedure("settings.manage")
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+
+        // Get connection to find associated whatsappNumber
+        const connection = await db
+          .select()
+          .from(whatsappConnections)
+          .where(eq(whatsappConnections.id, input.id))
+          .limit(1);
+
+        if (connection.length === 0) {
+          throw new Error("Connection not found");
+        }
+
+        // Delete connection (will cascade delete conversations if configured)
+        await db.delete(whatsappConnections).where(eq(whatsappConnections.id, input.id));
+
+        // Delete associated whatsappNumber
+        if (connection[0].whatsappNumberId) {
+          await db.delete(whatsappNumbers).where(eq(whatsappNumbers.id, connection[0].whatsappNumberId));
         }
 
         return { success: true };
