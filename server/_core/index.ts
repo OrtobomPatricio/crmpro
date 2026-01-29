@@ -69,10 +69,8 @@ async function startServer() {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        // CSP NO DEBIL: Remove unsafe-inline/eval in production
-        scriptSrc: isProd
-          ? ["'self'", "https://maps.googleapis.com"]
-          : ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://maps.googleapis.com"],
+        // CSP: Allow unsafe-inline/eval to support Vite runtime & hydration
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://maps.googleapis.com"],
         imgSrc: ["'self'", "data:", "blob:", "https://*.googleusercontent.com", "https://maps.gstatic.com"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
@@ -80,6 +78,7 @@ async function startServer() {
       },
     },
     crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin for images if needed
+    hsts: false, // Disable HSTS for HTTP-only VPS access
   }));
 
   app.use(cors({
