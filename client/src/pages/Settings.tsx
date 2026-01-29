@@ -53,6 +53,9 @@ import { WhatsAppConnectionsList } from "@/components/WhatsAppConnectionsList";
 import { AddEmailDialog } from "@/components/AddEmailDialog";
 import { EmailConnectionsList } from "@/components/EmailConnectionsList";
 import { BackupRestoreSection, ActivityLogsViewer } from "@/components/SecurityComponents";
+import { CustomFieldsManager } from "@/components/CustomFieldsManager";
+import { AddFacebookDialog } from "@/components/AddFacebookDialog";
+import { FacebookPagesList } from "@/components/FacebookPagesList";
 
 const TZ_OPTIONS = [
   "America/Asuncion",
@@ -322,7 +325,7 @@ function SettingsContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full h-auto grid-cols-2 md:grid-cols-5 lg:grid-cols-10 gap-y-2">
+        <TabsList className="grid w-full h-auto grid-cols-2 md:grid-cols-5 lg:grid-cols-11 gap-y-2">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="team">Usuarios</TabsTrigger>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
@@ -333,6 +336,7 @@ function SettingsContent() {
           <TabsTrigger value="storage">Almacenamiento</TabsTrigger>
           <TabsTrigger value="ai">IA</TabsTrigger>
           <TabsTrigger value="maps">Maps</TabsTrigger>
+          <TabsTrigger value="customFields">Campos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-4">
@@ -734,6 +738,21 @@ function SettingsContent() {
             </CardHeader>
             <CardContent>
               <EmailConnectionsList />
+            </CardContent>
+          </Card>
+
+          <Card className="mt-4">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Facebook Pages</CardTitle>
+                  <CardDescription>Gestiona conexiones con páginas de Facebook</CardDescription>
+                </div>
+                <AddFacebookDialog />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <FacebookPagesList />
             </CardContent>
           </Card>
         </TabsContent>
