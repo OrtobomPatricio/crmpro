@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/table";
 
 import { SalesConfigEditor } from "@/components/SalesConfigEditor";
+import { SLAConfigEditor } from "@/components/SLAConfigEditor";
 import { PermissionsMatrixEditor } from "@/components/PermissionsMatrixEditor";
 import { DashboardConfigEditor } from "@/components/DashboardConfigEditor";
 import { AddUserDialog } from "@/components/AddUserDialog";
@@ -692,49 +693,10 @@ function SettingsContent() {
         </TabsContent>
 
         <TabsContent value="sla" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Niveles de Servicio (SLA)</CardTitle>
-              <CardDescription>Define alertas cuando una conversación no es atendida a tiempo.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-2">
-                <Label>Tiempo Máximo de Respuesta (minutos)</Label>
-                <Input
-                  type="number"
-                  min={5}
-                  value={form.slaConfig?.maxResponseTimeMinutes ?? 60}
-                  onChange={(e) => setForm(p => ({ ...p, slaConfig: { ...(p.slaConfig || { notifySupervisor: false }), maxResponseTimeMinutes: parseInt(e.target.value) || 60 } }))}
-                />
-                <p className="text-sm text-muted-foreground">Si un cliente espera más de este tiempo, se generará una alerta.</p>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={form.slaConfig?.notifySupervisor ?? false}
-                  onCheckedChange={(c) => setForm(p => ({ ...p, slaConfig: { ...(p.slaConfig || { maxResponseTimeMinutes: 60 }), notifySupervisor: c } }))}
-                />
-                <Label>Notificar al Supervisor (Email)</Label>
-              </div>
-
-              {(form.slaConfig?.notifySupervisor) && (
-                <div className="grid gap-2 pl-6 border-l-2">
-                  <Label>Email para Alertas</Label>
-                  <Input
-                    placeholder="supervisor@empresa.com"
-                    value={form.slaConfig?.alertEmail ?? ""}
-                    onChange={(e) => setForm(p => ({ ...p, slaConfig: { ...(p.slaConfig || { maxResponseTimeMinutes: 60, notifySupervisor: true }), alertEmail: e.target.value } }))}
-                  />
-                </div>
-              )}
-
-              <div className="flex justify-end pt-4">
-                <Button onClick={saveGeneral} disabled={updateGeneral.isPending}>
-                  {updateGeneral.isPending ? "Guardando..." : "Guardar Configuración SLA"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <SLAConfigEditor
+            query={settingsQuery}
+            updateMutation={updateGeneral}
+          />
         </TabsContent>
 
 
