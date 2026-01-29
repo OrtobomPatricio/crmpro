@@ -52,6 +52,7 @@ import { AddWhatsAppDialog } from "@/components/AddWhatsAppDialog";
 import { WhatsAppConnectionsList } from "@/components/WhatsAppConnectionsList";
 import { AddEmailDialog } from "@/components/AddEmailDialog";
 import { EmailConnectionsList } from "@/components/EmailConnectionsList";
+import { BackupRestoreSection, ActivityLogsViewer } from "@/components/SecurityComponents";
 
 const TZ_OPTIONS = [
   "America/Asuncion",
@@ -746,6 +747,8 @@ function SettingsContent() {
         </TabsContent>
 
         <TabsContent value="security" className="space-y-4">
+          <BackupRestoreSection />
+          <ActivityLogsViewer />
           <SecurityTabContent />
         </TabsContent>
 
