@@ -8,15 +8,15 @@ export async function assertDbConstraints() {
     // Verificamos el constraint más crítico: UNIQUE en singleton de app_settings
     // Esto asegura que la DB realmente corrió la migración 0011
     try {
-        const [r] = await db.execute(sql`
+        const [rows]: any = await db.execute(sql`
       SELECT COUNT(*) as c
       FROM information_schema.statistics
       WHERE table_schema = DATABASE()
         AND table_name = 'app_settings'
         AND index_name = 'uniq_app_settings_singleton'
-    `) as any;
+    `);
 
-        const ok = Number(r?.c ?? 0) > 0;
+        const ok = Number(rows[0]?.c ?? 0) > 0;
 
         // Solo fallamos en producción si falta el constraint
         if (!ok && process.env.NODE_ENV === "production") {
