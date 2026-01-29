@@ -210,13 +210,13 @@ export function SecurityTabContent() {
                                         <TableRow key={session.id}>
                                             <TableCell>{session.userName}</TableCell>
                                             <TableCell className="text-sm">
-                                                {format(new Date(session.lastActivityAt), "dd/MM HH:mm")}
+                                                {session.lastActivityAt ? format(new Date(session.lastActivityAt), "dd/MM HH:mm") : "—"}
                                             </TableCell>
                                             <TableCell className="text-sm font-mono">
                                                 {session.ipAddress ?? "—"}
                                             </TableCell>
                                             <TableCell className="text-sm">
-                                                {format(new Date(session.expiresAt), "dd/MM HH:mm")}
+                                                {session.expiresAt ? format(new Date(session.expiresAt), "dd/MM HH:mm") : "—"}
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <Button
