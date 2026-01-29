@@ -692,6 +692,31 @@ export const appRouter = router({
 
         return { success: true };
       }),
+
+    delete: permissionProcedure("users.manage")
+      .input(z.object({ userId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+
+        // Get target user
+        const target = await db.select().from(users).where(eq(users.id, input.userId)).limit(1);
+        if (!target[0]) throw new Error("User not found");
+
+        // Prevent deleting owner (only owner can delete owner accounts)
+        if (target[0].role === "owner" && (ctx.user as any).role !== "owner") {
+          throw new Error("Only owner can delete another owner");
+        }
+
+        // Prevent self-deletion
+        if (target[0].id === (ctx.user as any).id) {
+          throw new Error("Cannot delete yourself");
+        }
+
+        // Delete user
+        await db.delete(users).where(eq(users.id, input.userId));
+        return { success: true };
+      }),
   }),
 
   // Dashboard router

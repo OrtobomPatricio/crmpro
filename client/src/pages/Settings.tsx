@@ -140,6 +140,15 @@ function SettingsContent() {
     onError: (e) => toast.error(e.message),
   });
 
+  const deleteUser = trpc.team.delete.useMutation({
+    onSuccess: () => {
+      teamQuery.refetch();
+      toast.success("Usuario eliminado");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+
   const [form, setForm] = useState({
     companyName: "",
     logoUrl: "",
@@ -489,6 +498,32 @@ function SettingsContent() {
                           onCheckedChange={(v) => setActive.mutate({ userId: u.id, isActive: v })}
                         />
                         <span className="text-sm">Activo</span>
+
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="ml-2 text-destructive hover:text-destructive hover:bg-destructive/10">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>¿Eliminar usuario?</DialogTitle>
+                              <DialogDescription>
+                                Esta acción no se puede deshacer. El usuario <strong>{u.name}</strong> será eliminado permanentemente del sistema.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter>
+                              <Button variant="outline">Cancelar</Button>
+                              <Button
+                                variant="destructive"
+                                onClick={() => deleteUser.mutate({ userId: u.id })}
+                                disabled={deleteUser.isPending}
+                              >
+                                Eliminar
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
                       </div>
                     </div>
                   </div>
