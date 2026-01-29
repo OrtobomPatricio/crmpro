@@ -5,7 +5,7 @@ import { publicProcedure, protectedProcedure, router, adminProcedure, permission
 import { sanitizeAppSettings, validateCustomRole } from "./_core/security-helpers";
 import { z } from "zod";
 import { getDb } from "./db";
-import { leads, whatsappNumbers, campaigns, campaignRecipients, messages, activityLogs, users, integrations, appointments, appointmentReasons, conversations, chatMessages, whatsappNumbers as wn, whatsappConnections, appSettings, workflows, reminderTemplates, pipelines, pipelineStages, customFieldDefinitions, templates, accessLogs, sessions, goals, achievements, internalMessages } from "../drizzle/schema";
+import { leads, whatsappNumbers, campaigns, campaignRecipients, messages, activityLogs, users, integrations, appointments, appointmentReasons, conversations, chatMessages, whatsappNumbers as wn, whatsappConnections, smtpConnections, appSettings, workflows, reminderTemplates, pipelines, pipelineStages, customFieldDefinitions, templates, accessLogs, sessions, goals, achievements, internalMessages } from "../drizzle/schema";
 
 // ...
 
@@ -203,6 +203,111 @@ export const appRouter = router({
         throw new Error("Failed to sync with Meta");
       }
     }),
+  }),
+
+  // Email/SMTP Management
+  smtp: router({
+    list: permissionProcedure("settings.view")
+      .query(async () => {
+        const db = await getDb();
+        if (!db) return [];
+        return await db.select().from(smtpConnections).orderBy(smtpConnections.createdAt);
+      }),
+
+    create: permissionProcedure("settings.manage")
+      .input(z.object({
+        name: z.string().min(1).max(100),
+        host: z.string().min(1).max(255),
+        port: z.number().int().min(1).max(65535),
+        secure: z.boolean(),
+        user: z.string().min(1).max(255),
+        password: z.string().min(1),
+        fromEmail: z.string().email().optional(),
+        fromName: z.string().max(100).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+
+        // TODO: Encrypt password before storing
+        const [result] = await db.insert(smtpConnections).values({
+          ...input,
+          isActive: true,
+          isDefault: false,
+          testStatus: "untested",
+        }).$returningId();
+
+        return { success: true, id: result.id };
+      }),
+
+    delete: permissionProcedure("settings.manage")
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+
+        await db.delete(smtpConnections).where(eq(smtpConnections.id, input.id));
+        return { success: true };
+      }),
+
+    test: permissionProcedure("settings.manage")
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+
+        const [connection] = await db
+          .select()
+          .from(smtpConnections)
+          .where(eq(smtpConnections.id, input.id))
+          .limit(1);
+
+        if (!connection) throw new Error("Connection not found");
+
+        try {
+          // Test connection using the verifySmtpConnection function
+          await verifySmtpConnection({
+            host: connection.host,
+            port: connection.port,
+            secure: connection.secure,
+            user: connection.user,
+            pass: connection.password || "",
+          });
+
+          // Update test status
+          await db
+            .update(smtpConnections)
+            .set({ testStatus: "success", lastTested: new Date() })
+            .where(eq(smtpConnections.id, input.id));
+
+          return { success: true, status: "success" };
+        } catch (error) {
+          await db
+            .update(smtpConnections)
+            .set({ testStatus: "failed", lastTested: new Date() })
+            .where(eq(smtpConnections.id, input.id));
+
+          throw new Error(`Test failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+        }
+      }),
+
+    setDefault: permissionProcedure("settings.manage")
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+
+        // Unset all defaults first
+        await db.update(smtpConnections).set({ isDefault: false });
+
+        // Set this one as default
+        await db
+          .update(smtpConnections)
+          .set({ isDefault: true })
+          .where(eq(smtpConnections.id, input.id));
+
+        return { success: true };
+      }),
   }),
 
   auth: router({

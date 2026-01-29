@@ -47,6 +47,8 @@ import { DashboardConfigEditor } from "@/components/DashboardConfigEditor";
 import { AddUserDialog } from "@/components/AddUserDialog";
 import { AddWhatsAppDialog } from "@/components/AddWhatsAppDialog";
 import { WhatsAppConnectionsList } from "@/components/WhatsAppConnectionsList";
+import { AddEmailDialog } from "@/components/AddEmailDialog";
+import { EmailConnectionsList } from "@/components/EmailConnectionsList";
 
 const TZ_OPTIONS = [
   "America/Asuncion",
@@ -749,6 +751,21 @@ function SettingsContent() {
             </CardHeader>
             <CardContent>
               <WhatsAppConnectionsList />
+            </CardContent>
+          </Card>
+
+          <Card className="mt-4">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Conexiones de Email (SMTP)</CardTitle>
+                  <CardDescription>Configura cuentas de email para enviar invitaciones y notificaciones.</CardDescription>
+                </div>
+                <AddEmailDialog />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <EmailConnectionsList />
             </CardContent>
           </Card>
         </TabsContent>
