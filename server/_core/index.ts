@@ -101,7 +101,12 @@ async function startServer() {
         return callback(null, true);
       }
 
-      const allowedOrigins = [process.env.CLIENT_URL, process.env.VITE_API_URL].filter(Boolean);
+      const allowedOrigins = [
+        process.env.CLIENT_URL,
+        process.env.VITE_API_URL,
+        "http://168.231.98.244:3000" // Hardcoded VPS IP fallback
+      ].filter(Boolean);
+
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
