@@ -58,6 +58,8 @@ COPY --from=build /app/drizzle.config.ts ./
 COPY --from=build /app/drizzle/schema.ts ./drizzle/
 
 COPY deploy/docker-entrypoint.sh /usr/local/bin/
+# Fix line endings for Windows uploads
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 3000
