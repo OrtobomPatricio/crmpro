@@ -13,10 +13,12 @@ export function assertEnv() {
         throw new Error("DATA_ENCRYPTION_KEY missing");
     }
 
-    // requerido para poder asignar owner de forma controlada
-    if (!ENV.ownerOpenId) {
-        throw new Error("OWNER_OPEN_ID missing");
-    }
+    // OWNER_OPEN_ID is optional: only needed if using OAuth-based owner assignment
+    // For credentials-based auth (bootstrap admin), this can be empty
+    // if (!ENV.ownerOpenId) {
+    //     throw new Error("OWNER_OPEN_ID missing");
+    // }
+
 
     if (isProd && !process.env.DATABASE_URL) {
         throw new Error("DATABASE_URL missing in production");
