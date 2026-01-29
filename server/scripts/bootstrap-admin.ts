@@ -25,6 +25,7 @@ async function main() {
     });
 
     console.log("admin creado");
+    process.exit(0);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });
