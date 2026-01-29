@@ -236,7 +236,7 @@ function DashboardContent() {
             description: "Gestión del equipo de soporte",
             iconColor: "icon-container-blue",
             hoverColor: "hover:border-blue-500/50",
-            path: "/attendants",
+            path: "/settings?tab=team",
         },
         {
             key: "health",
@@ -245,7 +245,7 @@ function DashboardContent() {
             description: "Estado de salud de tus conexiones",
             iconColor: "icon-container-red",
             hoverColor: "hover:border-red-500/50",
-            path: "/health",
+            path: "/monitoring",
         },
         {
             key: "whatsapp",
@@ -254,7 +254,7 @@ function DashboardContent() {
             description: "Administrar números conectados",
             iconColor: "icon-container-green",
             hoverColor: "hover:border-green-500/50",
-            path: "/whatsapp",
+            path: "/settings?tab=distribution",
         },
         {
             key: "commissions",
@@ -263,16 +263,16 @@ function DashboardContent() {
             description: "Cálculo y reporte de comisiones",
             iconColor: "icon-container-yellow",
             hoverColor: "hover:border-yellow-500/50",
-            path: "/commissions",
+            path: "/analytics?tab=commissions",
         },
         {
             key: "goals",
             icon: Target,
-            label: "Metas de Vendas",
+            label: "Metas de Ventas",
             description: "Objetivos y seguimiento",
             iconColor: "icon-container-orange",
             hoverColor: "hover:border-orange-500/50",
-            path: "/goals",
+            path: "/analytics?tab=goals",
         },
         {
             key: "achievements",
@@ -281,7 +281,7 @@ function DashboardContent() {
             description: "Premios y reconocimientos",
             iconColor: "icon-container-purple",
             hoverColor: "hover:border-purple-500/50",
-            path: "/achievements",
+            path: "/analytics?tab=achievements",
         },
         {
             key: "warmup",
@@ -290,7 +290,7 @@ function DashboardContent() {
             description: "Calentamiento de números",
             iconColor: "icon-container-orange",
             hoverColor: "hover:border-orange-500/50",
-            path: "/warmup",
+            path: "/monitoring",
         },
 
     ];
