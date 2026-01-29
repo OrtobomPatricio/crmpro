@@ -42,12 +42,24 @@ export default function SetupAccount() {
 
     if (!token) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
                 <Card className="w-full max-w-md">
                     <CardHeader>
-                        <CardTitle className="text-red-500">Enlace inválido</CardTitle>
-                        <CardDescription>No se encontró el token de invitación.</CardDescription>
+                        <CardTitle>Registro Privado</CardTitle>
+                        <CardDescription>
+                            El registro público no está habilitado actualmente.
+                        </CardDescription>
                     </CardHeader>
+                    <CardContent>
+                        <div className="text-sm text-muted-foreground bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            Necesitas una invitación del administrador para crear una cuenta.
+                            <br /><br />
+                            Si ya tienes una invitación, por favor revisa tu correo y haz clic en el enlace proporcionado.
+                        </div>
+                        <Button className="w-full mt-4" variant="outline" onClick={() => setLocation("/")}>
+                            Volver al Inicio
+                        </Button>
+                    </CardContent>
                 </Card>
             </div>
         );

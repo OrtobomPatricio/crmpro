@@ -183,7 +183,12 @@ export default function Login() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Contraseña</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Contraseña</Label>
+                    <a href="/forgot-password" className="text-xs text-primary hover:underline">
+                      ¿Olvidaste tu contraseña?
+                    </a>
+                  </div>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -204,6 +209,13 @@ export default function Login() {
                   Iniciar Sesión
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
+
+                <div className="text-center text-sm">
+                  <span className="text-muted-foreground">¿No tienes cuenta? </span>
+                  <a href="/setup-account" className="text-primary hover:underline font-medium">
+                    Crear cuenta
+                  </a>
+                </div>
               </form>
 
 
