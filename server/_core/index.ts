@@ -118,7 +118,12 @@ async function startServer() {
 
   // 5.2 Same-Site Guard Middleware
   // Protects against CSRF for mutations even if CORS fails or is bypassed
-  const allowedSet = new Set([process.env.CLIENT_URL, process.env.VITE_API_URL].filter(Boolean) as string[]);
+  const allowedSet = new Set([
+    process.env.CLIENT_URL,
+    process.env.VITE_API_URL,
+    "http://168.231.98.244:3000" // Hardcoded VPS IP fallback
+  ].filter(Boolean) as string[]);
+
   app.use((req, res, next) => {
     // Only verify for mutations
     const method = req.method.toUpperCase();
