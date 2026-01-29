@@ -1,30 +1,37 @@
 services:
   mysql:
     image: mysql:8.0
-    command: --default-authentication-plugin=mysql_native_password --sql_mode="" --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    command: --default-authentication-plugin=mysql_native_password --sql_mode="" --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --max_allowed_packet=64M
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change_me}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-chin_crm}
       MYSQL_USER: ${MYSQL_USER:-crm}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change_me}
-    ports:
-      - "${MYSQL_PORT:-3306}:3306"
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-crm_password}
+    expose:
+      - "3306"
     volumes:
       - mysql_data:/var/lib/mysql
+    networks:
+      - app_network
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-change_me}" ]
-      interval: 5s
+      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-root_password}" ]
+      interval: 10s
       timeout: 5s
-      retries: 20
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   app:
     build:
       context: .
       args:
         VITE_OAUTH_PORTAL_URL: ${VITE_OAUTH_PORTAL_URL:-http://localhost:3000}
-        VITE_APP_ID: ${VITE_APP_ID:-imagine-crm}
-        VITE_DEV_BYPASS_AUTH: ${ALLOW_DEV_LOGIN:-0}
+        VITE_APP_ID: ${VITE_APP_ID:-chin-crm}
+        VITE_DEV_BYPASS_AUTH: "0"
         VITE_ANALYTICS_ENDPOINT: ${VITE_ANALYTICS_ENDPOINT:-}
         VITE_ANALYTICS_WEBSITE_ID: ${VITE_ANALYTICS_WEBSITE_ID:-}
     restart: unless-stopped
@@ -32,28 +39,45 @@ services:
       mysql:
         condition: service_healthy
     ports:
-      - "${APP_PORT:-3000}:3000"
+      - "${PORT:-80}:3000"
+    networks:
+      - app_network
     environment:
       NODE_ENV: production
       PORT: 3000
-      # IMPORTANT: use mysql service name as host
-      DATABASE_URL: mysql://${MYSQL_USER:-crm}:${MYSQL_PASSWORD:-change_me}@mysql:3306/${MYSQL_DATABASE:-chin_crm}
-      JWT_SECRET: ${JWT_SECRET:-CHANGE_ME}
-      OWNER_OPEN_ID: ${OWNER_OPEN_ID:-dev-owner}
-      ALLOW_DEV_LOGIN: ${ALLOW_DEV_LOGIN:-0}
-      VITE_DEV_BYPASS_AUTH: ${VITE_DEV_BYPASS_AUTH:-0}
+      DATABASE_URL: mysql://${MYSQL_USER:-crm}:${MYSQL_PASSWORD:-crm_password}@mysql:3306/${MYSQL_DATABASE:-chin_crm}
+      JWT_SECRET: ${JWT_SECRET:-default_jwt_secret_change_me_in_prod}
+      OWNER_OPEN_ID: ${OWNER_OPEN_ID:-}
+      ALLOW_DEV_LOGIN: "0"
+      VITE_DEV_BYPASS_AUTH: "0"
       VITE_OAUTH_PORTAL_URL: ${VITE_OAUTH_PORTAL_URL:-http://localhost:3000}
       VITE_APP_ID: ${VITE_APP_ID:-chin-crm}
-      OAUTH_SERVER_URL: ${OAUTH_SERVER_URL:-http://localhost:3000}
-      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:-CHANGE_ME_32CHARS_MIN}
-      WHATSAPP_WEBHOOK_VERIFY_TOKEN: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN:-CHANGE_ME}
+      OAUTH_SERVER_URL: ${OAUTH_SERVER_URL:-${VITE_OAUTH_PORTAL_URL:-http://localhost:3000}}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:-12345678901234567890123456789012}
+      WHATSAPP_WEBHOOK_VERIFY_TOKEN: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN:-imagine_crm_verify}
       WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
       WHATSAPP_GRAPH_VERSION: ${WHATSAPP_GRAPH_VERSION:-v19.0}
       WHATSAPP_GRAPH_BASE_URL: ${WHATSAPP_GRAPH_BASE_URL:-https://graph.facebook.com}
-      # Run migrations on start by default (safe for dev/prod)
-      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-1}
+      RUN_MIGRATIONS: "1"
     volumes:
-      - ./.env:/app/.env:ro
+      - uploads_data:/app/dist/public/uploads
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 volumes:
   mysql_data:
+  uploads_data:
+
+
+networks:
+  app_network:
+    driver: bridge
