@@ -277,7 +277,7 @@ function SettingsContent() {
   useEffect(() => {
     const params = new URLSearchParams(search);
     const tab = params.get("tab");
-    if (tab && ["general", "team", "dashboard", "distribution", "security", "perms", "sla", "storage", "customFields", "sales"].includes(tab)) {
+    if (tab && ["general", "team", "dashboard", "distribution", "security", "sla", "storage", "customFields", "sales"].includes(tab)) {
       setActiveTab(tab);
     }
 
@@ -325,14 +325,13 @@ function SettingsContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full h-auto grid-cols-2 md:grid-cols-5 lg:grid-cols-9 gap-y-2">
+        <TabsList className="grid w-full h-auto grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-y-2">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="team">Usuarios</TabsTrigger>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="distribution">Conexiones</TabsTrigger>
           <TabsTrigger value="sales">Ventas</TabsTrigger>
           <TabsTrigger value="security">Seguridad</TabsTrigger>
-          <TabsTrigger value="perms" disabled={role !== "owner"}>Permisos</TabsTrigger>
           <TabsTrigger value="storage">Almacenamiento</TabsTrigger>
           <TabsTrigger value="customFields">Campos</TabsTrigger>
         </TabsList>
@@ -682,23 +681,7 @@ function SettingsContent() {
 
         </TabsContent>
 
-        <TabsContent value="perms" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Permisos avanzados</CardTitle>
-              <CardDescription>
-                Define qué puede hacer cada rol en el sistema.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <PermissionsMatrixEditor
-                initialMatrix={initialMatrix}
-                onSave={(m) => updatePerms.mutate({ permissionsMatrix: m })}
-                isLoading={updatePerms.isPending}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
+
 
         <TabsContent value="sla" className="space-y-4">
           <SLAConfigEditor
