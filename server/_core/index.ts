@@ -6,6 +6,7 @@ import cors from "cors";
 import helmet from "helmet";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
+import { registerNativeOAuth } from "./native-oauth";
 import { registerWhatsAppWebhookRoutes } from "../whatsapp/webhook";
 import { registerMetaRoutes } from "../meta-routes";
 import { appRouter } from "../routers";
@@ -224,7 +225,10 @@ async function startServer() {
   );
   app.use(express.urlencoded({ limit: "50kb", extended: true }));
 
-  // OAuth callback under /api/oauth/callback
+  // Native OAuth (Google + Microsoft)
+  registerNativeOAuth(app);
+
+  // Legacy OAuth callback (backward compatibility if needed)
   registerOAuthRoutes(app);
 
   // WhatsApp Cloud API webhook

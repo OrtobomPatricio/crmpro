@@ -37,9 +37,8 @@ export default function Login() {
     login.mutate(formData);
   };
 
-  const handleOAuthLogin = () => {
-    // All providers redirect to the main OAuth
-    window.location.href = getLoginUrl();
+  const handleOAuthLogin = (provider: 'google' | 'microsoft') => {
+    window.location.href = `/api/auth/${provider}`;
   };
 
   const handleDevLogin = () => {
@@ -116,7 +115,7 @@ export default function Login() {
                 <Button
                   variant="outline"
                   className="w-full h-11 bg-card/50 hover:bg-card border-border/50 transition-all duration-300 hover:border-primary/50 hover:shadow-md hover:shadow-primary/10"
-                  onClick={handleOAuthLogin}
+                  onClick={() => handleOAuthLogin('google')}
                 >
                   <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
                     <path
@@ -142,7 +141,7 @@ export default function Login() {
                 <Button
                   variant="outline"
                   className="w-full h-11 bg-card/50 hover:bg-card border-border/50 transition-all duration-300 hover:border-primary/50 hover:shadow-md hover:shadow-primary/10"
-                  onClick={handleOAuthLogin}
+                  onClick={() => handleOAuthLogin('microsoft')}
                 >
                   <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
                     <path fill="#F25022" d="M1 1h10v10H1z" />
