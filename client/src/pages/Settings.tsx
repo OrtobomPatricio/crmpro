@@ -765,15 +765,11 @@ function SettingsContent() {
           />
         </TabsContent>
 
-
+        <TabsContent value="customFields" className="space-y-4">
+          <CustomFieldsManager />
+        </TabsContent>
 
       </Tabs>
     </div>
   );
 }
-
-
-
-
-
-
