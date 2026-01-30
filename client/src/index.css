@@ -83,28 +83,44 @@
   --radius: 0.5rem;
   /* More professional, less rounded */
   --background: oklch(0.99 0 0);
-  --foreground: oklch(0.15 0.02 285);
+  --foreground: oklch(0.10 0.02 285);
+  /* Darker for better readability */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.15 0.02 285);
+  --card-foreground: oklch(0.10 0.02 285);
+  /* Darker for better readability */
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.15 0.02 285);
-  --secondary: oklch(0.96 0.01 285);
-  --secondary-foreground: oklch(0.4 0.015 285);
-  --muted: oklch(0.96 0.005 285);
-  --muted-foreground: oklch(0.5 0.02 285);
-  --accent: oklch(0.96 0.01 285);
-  --accent-foreground: oklch(0.2 0.02 285);
+  --popover-foreground: oklch(0.10 0.02 285);
+  /* Darker for better readability */
+  --secondary: oklch(0.94 0.01 285);
+  /* Slightly darker background */
+  --secondary-foreground: oklch(0.25 0.015 285);
+  /* Much darker text */
+  --muted: oklch(0.94 0.005 285);
+  /* Slightly darker background */
+  --muted-foreground: oklch(0.40 0.02 285);
+  /* Much darker text for better visibility */
+  --accent: oklch(0.94 0.01 285);
+  /* Slightly darker background */
+  --accent-foreground: oklch(0.15 0.02 285);
+  /* Much darker text */
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.01 285);
-  --input: oklch(0.92 0.01 285);
+  --border: oklch(0.90 0.01 285);
+  /* Slightly darker for better definition */
+  --input: oklch(0.90 0.01 285);
+  /* Slightly darker for better definition */
   --ring: oklch(0.45 0.25 285);
 
-  --sidebar: oklch(0.98 0.005 285);
-  --sidebar-foreground: oklch(0.25 0.02 285);
-  --sidebar-accent: oklch(0.95 0.01 285);
-  --sidebar-accent-foreground: oklch(0.2 0.02 285);
-  --sidebar-border: oklch(0.92 0.01 285);
+  --sidebar: oklch(0.97 0.005 285);
+  /* Slightly darker */
+  --sidebar-foreground: oklch(0.20 0.02 285);
+  /* Darker text */
+  --sidebar-accent: oklch(0.93 0.01 285);
+  /* Darker */
+  --sidebar-accent-foreground: oklch(0.15 0.02 285);
+  /* Darker text */
+  --sidebar-border: oklch(0.88 0.01 285);
+  /* Darker for better definition */
   --sidebar-ring: oklch(0.45 0.25 285);
 }
 
