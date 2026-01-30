@@ -345,3 +345,8 @@ export function RecentLeadsWidget() {
         </Card>
     );
 }
+
+// New Message Analytics Widgets
+export { ActiveMessagesWidget } from "./ActiveMessagesWidget";
+export { AgentPerformanceWidget } from "./AgentPerformanceWidget";
+

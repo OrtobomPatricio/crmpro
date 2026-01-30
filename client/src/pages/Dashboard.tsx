@@ -14,7 +14,9 @@ import {
     RecentActivityWidget,
     WarmupWidget,
     StatusWidget,
-    RecentLeadsWidget
+    RecentLeadsWidget,
+    ActiveMessagesWidget,
+    AgentPerformanceWidget
 } from "@/components/dashboard-widgets";
 import {
     Users,
@@ -63,6 +65,8 @@ const WIDGET_DEFINITIONS: WidgetDefinition[] = [
     { key: 'agent-leaderboard', label: 'Top Agentes', category: 'Analytics' },
     { key: 'upcoming-appointments', label: 'Próximas Citas', category: 'Analytics' },
     { key: 'recent-activity', label: 'Actividad Reciente', category: 'Analytics' },
+    { key: 'active-messages', label: 'Mensajes Activos', category: 'Analytics' },
+    { key: 'agent-performance', label: 'Desempeño de Agentes', category: 'Analytics' },
     { key: 'quick-actions', label: 'Acciones Rápidas', category: 'Navegación' },
     { key: 'recent-leads', label: 'Leads Recientes', category: 'Navegación' },
 ];
@@ -100,6 +104,8 @@ function DashboardContent() {
         'agent-leaderboard': false,
         'upcoming-appointments': false,
         'recent-activity': false,
+        'active-messages': true,
+        'agent-performance': true,
         'quick-actions': true,
         'recent-leads': true,
         // Quick Actions Defaults
@@ -438,6 +444,8 @@ function DashboardContent() {
                 {widgetConfig['warmup'] && <WarmupWidget />}
                 {widgetConfig['status'] && <StatusWidget />}
                 {widgetConfig['recent-leads'] && <RecentLeadsWidget />}
+                {widgetConfig['active-messages'] && <ActiveMessagesWidget />}
+                {widgetConfig['agent-performance'] && <AgentPerformanceWidget />}
             </div>
 
             {/* Quick Actions */}
