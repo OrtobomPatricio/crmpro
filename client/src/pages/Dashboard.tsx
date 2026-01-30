@@ -251,7 +251,7 @@ function DashboardContent() {
             description: "Estado de salud de tus conexiones",
             iconColor: "icon-container-red",
             hoverColor: "hover:border-red-500/50",
-            path: "/monitoring",
+            path: "/warmup",
         },
         {
             key: "whatsapp",
