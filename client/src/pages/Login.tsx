@@ -106,7 +106,7 @@ export default function Login() {
               <div className="grid gap-3">
                 {canDevLogin && (
                   <Button
-                    className="w-full h-11 bg-muted/60 hover:bg-muted border border-border/50 transition-all duration-300"
+                    className="w-full h-11 bg-muted/60 hover:bg-muted border border-border/50 text-foreground transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
                     onClick={handleDevLogin}
                   >
                     Entrar como DEV (sin Google)
@@ -114,10 +114,10 @@ export default function Login() {
                 )}
                 <Button
                   variant="outline"
-                  className="w-full h-11 bg-card/50 hover:bg-card border-border/50 transition-all duration-300 hover:border-primary/50 hover:shadow-md hover:shadow-primary/10"
+                  className="w-full h-11 bg-card/50 hover:bg-card border-border/50 transition-all duration-300 hover:border-blue-500/30 hover:shadow-md hover:shadow-blue-500/10 transform hover:scale-[1.02] active:scale-[0.98] group"
                   onClick={() => handleOAuthLogin('google')}
                 >
-                  <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 mr-3 transition-transform group-hover:scale-110" viewBox="0 0 24 24">
                     <path
                       fill="#4285F4"
                       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -140,10 +140,10 @@ export default function Login() {
 
                 <Button
                   variant="outline"
-                  className="w-full h-11 bg-card/50 hover:bg-card border-border/50 transition-all duration-300 hover:border-primary/50 hover:shadow-md hover:shadow-primary/10"
+                  className="w-full h-11 bg-card/50 hover:bg-card border-border/50 transition-all duration-300 hover:border-orange-500/30 hover:shadow-md hover:shadow-orange-500/10 transform hover:scale-[1.02] active:scale-[0.98] group"
                   onClick={() => handleOAuthLogin('microsoft')}
                 >
-                  <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 mr-3 transition-transform group-hover:scale-110" viewBox="0 0 24 24">
                     <path fill="#F25022" d="M1 1h10v10H1z" />
                     <path fill="#00A4EF" d="M1 13h10v10H1z" />
                     <path fill="#7FBA00" d="M13 1h10v10H13z" />
@@ -153,12 +153,12 @@ export default function Login() {
                 </Button>
               </div>
 
-              <div className="relative">
+              <div className="relative my-2">
                 <div className="absolute inset-0 flex items-center">
-                  <Separator className="w-full" />
+                  <span className="w-full border-t border-muted" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">
+                  <span className="bg-background/80 backdrop-blur-sm px-2 text-muted-foreground/70">
                     O continúa con email
                   </span>
                 </div>

@@ -2,11 +2,13 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, isSameDay, isToday, isYesterday } from "date-fns";
 import { es } from "date-fns/locale";
-import { Image as ImageIcon, Paperclip, Send, Smile } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Image as ImageIcon, Paperclip, Send, Smile, Info } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -53,7 +55,6 @@ export function ChatThread({ conversationId }: ChatThreadProps) {
 
     const scrollToBottom = () => {
         if (scrollRef.current) {
-            // Small timeout to allow render
             setTimeout(() => {
                 scrollRef.current?.scrollIntoView({ behavior: "smooth" });
             }, 100);
@@ -78,113 +79,177 @@ export function ChatThread({ conversationId }: ChatThreadProps) {
 
     if (isLoading) {
         return (
-            <div className="flex-1 flex items-center justify-center bg-muted/5">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="flex-1 flex flex-col p-6 gap-4 bg-muted/5">
+                {[1, 2, 3].map((i) => (
+                    <div key={i} className={cn("flex gap-3 max-w-[80%]", i % 2 === 0 ? "ml-auto flex-row-reverse" : "")}>
+                        <Skeleton className="h-8 w-8 rounded-full" />
+                        <Skeleton className={cn("h-16 rounded-2xl w-full", i % 2 === 0 ? "rounded-br-none" : "rounded-bl-none")} />
+                    </div>
+                ))}
             </div>
         );
     }
 
+    // Group messages by date
+    const groupedMessages: { date: Date; msgs: typeof messages }[] = [];
+    messages?.forEach((msg) => {
+        const msgDate = new Date(msg.createdAt);
+        const lastGroup = groupedMessages[groupedMessages.length - 1];
+
+        if (lastGroup && isSameDay(lastGroup.date, msgDate)) {
+            lastGroup.msgs?.push(msg);
+        } else {
+            groupedMessages.push({ date: msgDate, msgs: [msg] });
+        }
+    });
+
     return (
-        <div className="flex flex-col h-full bg-muted/5">
+        <div className="flex flex-col h-full bg-slate-50/50 dark:bg-zinc-900/30">
             {/* Messages Area */}
-            <ScrollArea className="flex-1 p-4">
-                <div className="flex flex-col gap-4 min-h-0">
-                    {messages?.map((msg, index) => {
-                        const isOutbound = msg.direction === 'outbound';
-                        const isLast = index === messages.length - 1;
-
-                        return (
-                            <div
-                                key={msg.id}
-                                ref={isLast ? scrollRef : null}
-                                className={cn(
-                                    "flex items-end gap-2 max-w-[80%]",
-                                    isOutbound ? "ml-auto flex-row-reverse" : ""
-                                )}
-                            >
-                                {!isOutbound && (
-                                    <Avatar className="h-8 w-8 border border-border">
-                                        <AvatarFallback className="text-[10px] bg-muted">
-                                            C
-                                        </AvatarFallback>
-                                    </Avatar>
-                                )}
-
-                                <div
-                                    className={cn(
-                                        "rounded-2xl px-4 py-2.5 shadow-sm text-sm whitespace-pre-wrap break-words",
-                                        isOutbound
-                                            ? "bg-primary text-primary-foreground rounded-br-none"
-                                            : "bg-background border border-border rounded-bl-none"
-                                    )}
-                                >
-                                    {msg.messageType === 'text' && <p>{msg.content}</p>}
-                                    {msg.messageType === 'image' && msg.mediaUrl && (
-                                        <div className="rounded-lg overflow-hidden my-1">
-                                            <img
-                                                src={msg.mediaUrl}
-                                                alt="Shared image"
-                                                className="max-w-[240px] max-h-[200px] object-cover"
-                                            />
-                                            {msg.content && <p className="mt-2 text-xs opacity-90">{msg.content}</p>}
-                                        </div>
-                                    )}
-                                    {msg.messageType === 'document' && (
-                                        <div className="flex items-center gap-2 bg-black/10 rounded p-2">
-                                            <Paperclip className="h-4 w-4" />
-                                            <a href={msg.mediaUrl || "#"} target="_blank" className="underline text-xs">Ver Documento</a>
-                                        </div>
-                                    )}
-
-                                    <div className={cn(
-                                        "text-[10px] mt-1 text-right opacity-70 flex items-center justify-end gap-1",
-                                        isOutbound ? "text-primary-foreground/80" : "text-muted-foreground"
-                                    )}>
-                                        {format(new Date(msg.createdAt), 'HH:mm')}
-                                        {isOutbound && (
-                                            <span>
-                                                {msg.status === 'sent' && '✓'}
-                                                {msg.status === 'delivered' && '✓✓'}
-                                                {msg.status === 'read' && <span className="text-blue-200">✓✓</span>}
-                                                {msg.status === 'failed' && '⚠️'}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-
+            <ScrollArea className="flex-1 px-4 py-2">
+                <div className="flex flex-col gap-6 min-h-0 pb-4">
                     {messages?.length === 0 && (
-                        <div className="text-center py-10 text-muted-foreground text-sm">
-                            Esta conversación está vacía via API.
-                        </div>
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="flex flex-col items-center justify-center py-20 text-muted-foreground"
+                        >
+                            <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-4">
+                                <Info className="h-10 w-10 text-primary/40" />
+                            </div>
+                            <p className="text-sm font-medium">Comienza la conversación</p>
+                            <p className="text-xs opacity-70 mt-1">Envía un mensaje para iniciar el chat</p>
+                        </motion.div>
                     )}
+
+                    {groupedMessages.map((group, groupIndex) => (
+                        <div key={groupIndex} className="flex flex-col gap-4">
+                            {/* Date Divider */}
+                            <div className="flex items-center justify-center">
+                                <span className="bg-muted/50 text-muted-foreground text-[10px] px-2 py-1 rounded-full border shadow-sm">
+                                    {isToday(group.date)
+                                        ? "Hoy"
+                                        : isYesterday(group.date)
+                                            ? "Ayer"
+                                            : format(group.date, "d 'de' MMMM", { locale: es })}
+                                </span>
+                            </div>
+
+                            {/* Messages in this group */}
+                            <div className="flex flex-col gap-2">
+                                <AnimatePresence initial={false}>
+                                    {group.msgs?.map((msg, index) => {
+                                        const isOutbound = msg.direction === 'outbound';
+                                        const isLast = index === (group.msgs?.length || 0) - 1;
+
+                                        return (
+                                            <motion.div
+                                                key={msg.id}
+                                                initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                transition={{ duration: 0.2 }}
+                                                ref={isLast && groupIndex === groupedMessages.length - 1 ? scrollRef : null}
+                                                className={cn(
+                                                    "flex items-end gap-2 max-w-[85%] relative group",
+                                                    isOutbound ? "ml-auto flex-row-reverse" : ""
+                                                )}
+                                            >
+                                                {!isOutbound && (
+                                                    <Avatar className="h-6 w-6 border shadow-sm mt-0.5">
+                                                        <AvatarFallback className="text-[9px] bg-background text-foreground font-bold">
+                                                            L
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                )}
+
+                                                <div
+                                                    className={cn(
+                                                        "rounded-2xl px-4 py-2 shadow-sm text-sm whitespace-pre-wrap break-words transition-all duration-200",
+                                                        isOutbound
+                                                            ? "bg-primary text-primary-foreground rounded-br-sm shadow-primary/10"
+                                                            : "bg-white dark:bg-zinc-800 border border-border/50 rounded-bl-sm shadow-sm"
+                                                    )}
+                                                >
+                                                    {msg.messageType === 'text' && <p className="leading-relaxed">{msg.content}</p>}
+
+                                                    {msg.messageType === 'image' && msg.mediaUrl && (
+                                                        <div className="rounded-lg overflow-hidden my-1 border border-black/5 dark:border-white/10 group-hover:shadow-md transition-shadow">
+                                                            <img
+                                                                src={msg.mediaUrl}
+                                                                alt="Shared image"
+                                                                className="max-w-full sm:max-w-[280px] max-h-[200px] object-cover cursor-zoom-in"
+                                                                loading="lazy"
+                                                            />
+                                                            {msg.content && <p className="mt-2 text-xs opacity-90 px-1">{msg.content}</p>}
+                                                        </div>
+                                                    )}
+
+                                                    {msg.messageType === 'document' && (
+                                                        <a
+                                                            href={msg.mediaUrl || "#"}
+                                                            target="_blank"
+                                                            className="flex items-center gap-3 bg-black/5 dark:bg-white/10 rounded-lg p-2 hover:bg-black/10 transition-colors"
+                                                        >
+                                                            <div className="p-1.5 bg-background rounded-md shadow-sm">
+                                                                <Paperclip className={cn("h-4 w-4", isOutbound ? "text-primary" : "text-foreground")} />
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-xs font-medium underline">Ver Documento</span>
+                                                                <span className="text-[10px] opacity-70">Clic para abrir</span>
+                                                            </div>
+                                                        </a>
+                                                    )}
+
+                                                    <div className={cn(
+                                                        "text-[10px] mt-1 text-right gap-1 flex items-center justify-end select-none",
+                                                        isOutbound ? "text-primary-foreground/70" : "text-muted-foreground/70"
+                                                    )}>
+                                                        {format(new Date(msg.createdAt), 'HH:mm')}
+                                                        {isOutbound && (
+                                                            <span className="ml-0.5">
+                                                                {msg.status === 'sent' && '✓'}
+                                                                {msg.status === 'delivered' && '✓✓'}
+                                                                {msg.status === 'read' && <span className="text-blue-200 font-bold">✓✓</span>}
+                                                                {msg.status === 'failed' && <span className="text-red-300">⚠️</span>}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        );
+                                    })}
+                                </AnimatePresence>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </ScrollArea>
 
-            {/* Input Area */}
-            <div className="p-4 border-t bg-background/50 backdrop-blur-sm">
-                <div className="flex gap-2 items-center">
-                    <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground">
-                        <Paperclip className="h-5 w-5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground">
-                        <ImageIcon className="h-5 w-5" />
-                    </Button>
+            {/* Premium Input Area */}
+            <div className="p-4 bg-background/80 backdrop-blur-md border-t border-border/40">
+                <div className="flex gap-2 items-end max-w-4xl mx-auto">
+                    <div className="flex gap-1 shrink-0 pb-1">
+                        <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full transition-colors">
+                            <Paperclip className="h-5 w-5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full transition-colors">
+                            <ImageIcon className="h-5 w-5" />
+                        </Button>
+                    </div>
 
-                    <div className="flex-1 relative">
+                    <div className="flex-1 relative bg-muted/40 hover:bg-muted/60 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/20 transition-all rounded-[24px] border border-transparent focus-within:border-primary/30">
                         <Input
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
                             onKeyDown={handleKeyDown}
                             placeholder="Escribe un mensaje..."
-                            className="pr-10 rounded-full bg-muted/50 border-transparent focus:bg-background focus:border-input transition-all"
+                            className="pr-10 py-6 bg-transparent border-none shadow-none focus-visible:ring-0 text-[15px] resize-none overflow-hidden"
+                            autoComplete="off"
                         />
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-primary"
+                            className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-primary transition-colors rounded-full"
                         >
                             <Smile className="h-5 w-5" />
                         </Button>
@@ -194,7 +259,10 @@ export function ChatThread({ conversationId }: ChatThreadProps) {
                         onClick={handleSend}
                         disabled={!inputText.trim() || sendMessage.isPending}
                         size="icon"
-                        className="rounded-full h-11 w-11 shadow-md"
+                        className={cn(
+                            "rounded-full h-11 w-11 shadow-lg transition-all duration-300 pb-1",
+                            inputText.trim() ? "scale-100 opacity-100" : "scale-90 opacity-80 grayscale"
+                        )}
                     >
                         <Send className="h-5 w-5 -ml-0.5" />
                     </Button>

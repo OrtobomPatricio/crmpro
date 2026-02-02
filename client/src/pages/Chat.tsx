@@ -2,25 +2,24 @@ import { ChatList } from "@/components/chat/ChatList";
 import { ChatThread } from "@/components/chat/ChatThread";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Search, ArrowLeft } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import {
   Filter,
   ArrowUpDown,
-  Check,
-  ChevronDown,
-  Globe,
-  Tag,
+  AlertCircle,
   Flag,
-  Calendar,
-  Clock,
   Users,
-  MessageSquare,
+  Layers,
   Briefcase,
   Hash,
-  Layers,
-  AlertCircle
+  MessageSquare,
+  Tag,
+  Globe,
+  Calendar,
+  Clock,
+  Phone
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -29,7 +28,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,6 +46,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { trpc } from "@/lib/trpc";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 export default function ChatPage() {
   const [location, setLocation] = useLocation();
@@ -56,14 +55,10 @@ export default function ChatPage() {
   const getOrCreateMutation = trpc.chat.getOrCreateByLeadId.useMutation({
     onSuccess: (data) => {
       setSelectedConversationId(data.id);
-      // Clean URL
-      // setLocation("/chat"); 
-      // Actually keeping query param might be useful or not? Let's clean it to avoid re-triggering
       window.history.replaceState({}, "", "/chat");
     },
     onError: (e) => {
       console.error("Failed to open chat for lead", e);
-      // toast.error(e.message); 
     }
   });
 
@@ -76,16 +71,18 @@ export default function ChatPage() {
         getOrCreateMutation.mutate({ leadId });
       }
     }
-  }, []); // Run once on mount
+  }, []);
 
   return (
-    <div className="h-[calc(100vh-80px)] flex gap-4">
+    <div className="h-[calc(100vh-80px)] flex gap-4 relative">
       {/* Left: Conversation List */}
-      <Card className="w-96 flex flex-col overflow-hidden border-border/50 shadow-sm bg-background/50 backdrop-blur-sm">
+      <Card className={cn(
+        "w-full md:w-80 lg:w-96 flex flex-col overflow-hidden border-border/50 shadow-sm bg-background/50 backdrop-blur-sm transition-all duration-300",
+        selectedConversationId ? "hidden md:flex" : "flex"
+      )}>
         <div className="p-3 border-b border-border/50 bg-muted/30 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold tracking-tight">Mensajes</h2>
-            {/* Channel Selector */}
             <ChannelSelector />
           </div>
 
@@ -94,7 +91,7 @@ export default function ChatPage() {
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
                 placeholder="Buscar chats..."
-                className="pl-8 bg-background/50 h-8 text-xs"
+                className="pl-8 bg-background/50 h-8 text-xs focus-visible:ring-offset-0"
               />
             </div>
 
@@ -111,13 +108,31 @@ export default function ChatPage() {
       </Card>
 
       {/* Center: Chat Area */}
-      <Card className="flex-1 flex flex-col overflow-hidden border-border/50 shadow-sm bg-background/50 backdrop-blur-sm">
+      <Card className={cn(
+        "flex-1 flex flex-col overflow-hidden border-border/50 shadow-sm bg-background/50 backdrop-blur-sm transition-all duration-300",
+        !selectedConversationId ? "hidden md:flex" : "flex"
+      )}>
         {selectedConversationId ? (
           <>
             <div className="h-14 border-b border-border/50 bg-muted/30 flex items-center px-4 justify-between shrink-0">
               <div className="flex items-center gap-3">
-                {/* Header info could go here (Avatar, Name, Status) - currently simplified */}
-                <span className="font-medium text-sm">Conversación Activa</span>
+                {/* Mobile Back Button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="md:hidden -ml-2 h-8 w-8"
+                  onClick={() => setSelectedConversationId(null)}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                  </span>
+                  <span className="font-medium text-sm">Conversación Activa</span>
+                </div>
               </div>
             </div>
             <div className="flex-1 overflow-hidden relative">
@@ -126,42 +141,35 @@ export default function ChatPage() {
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8 bg-muted/5">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="w-8 h-8 text-primary"
-              >
-                <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
-                <path d="M8 12h.01" />
-                <path d="M12 12h.01" />
-                <path d="M16 12h.01" />
-              </svg>
+            <div className="w-20 h-20 rounded-3xl bg-primary/5 flex items-center justify-center mb-6">
+              <MessageSquare className="w-10 h-10 text-primary/40" />
             </div>
-            <h3 className="text-lg font-medium text-foreground mb-1">Tu Bandeja de Entrada</h3>
-            <p className="text-sm max-w-md text-center">
-              Selecciona una conversación de la lista para ver el historial y responder a tus leads.
+            <h3 className="text-xl font-semibold text-foreground mb-2">Tu Bandeja de Entrada</h3>
+            <p className="text-sm max-w-md text-center text-muted-foreground/80">
+              Selecciona una conversación de la izquierda para ver el historial, responder a tus leads y gestionar tus ventas.
             </p>
           </div>
         )}
       </Card>
 
-      {/* Right: Lead Details (Collapsible) - Placeholder for Phase 3 */}
+      {/* Right: Lead Details (Collapsible) */}
       {selectedConversationId && (
-        <div className="w-72 hidden xl:block animate-in fade-in slide-in-from-right-4 duration-300">
+        <div className="w-72 hidden xl:block animate-in fade-in slide-in-from-right-4 duration-500">
           <Card className="h-full border-border/50 shadow-sm p-4 bg-background/50 backdrop-blur-sm">
-            <h3 className="font-semibold text-sm mb-4">Detalles del Lead</h3>
-            <div className="flex flex-col items-center justify-center h-40 text-muted-foreground bg-muted/10 rounded-lg text-sm border border-dashed border-border">
-              Info del Contacto
+            <h3 className="font-semibold text-sm mb-4 flex items-center gap-2">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              Detalles del Lead
+            </h3>
+            <div className="flex flex-col items-center justify-center h-40 text-muted-foreground bg-muted/10 rounded-lg text-sm border border-dashed border-border mb-4">
+              <span className="opacity-70">Información del Contacto</span>
             </div>
-            <div className="mt-4 space-y-2">
-              <div className="h-8 bg-muted/20 rounded w-full"></div>
-              <div className="h-24 bg-muted/20 rounded w-full"></div>
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="space-y-1">
+                  <div className="h-3 w-1/3 bg-muted/30 rounded" />
+                  <div className="h-8 w-full bg-muted/20 rounded" />
+                </div>
+              ))}
             </div>
           </Card>
         </div>
@@ -172,12 +180,12 @@ export default function ChatPage() {
 
 function ChannelSelector() {
   const { data: channels } = trpc.whatsappNumbers.list.useQuery();
-  // Default to 'all' or first channel
   const [selectedChannel, setSelectedChannel] = useState("all");
 
   return (
     <Select value={selectedChannel} onValueChange={setSelectedChannel}>
-      <SelectTrigger className="w-[180px] h-8 text-xs bg-background/50 border-input/50">
+      <SelectTrigger className="w-[160px] h-8 text-xs bg-muted/50 border-transparent hover:bg-muted/80 focus:ring-0 gap-1 rounded-full px-3">
+        <Phone className="h-3 w-3 opacity-70" />
         <SelectValue placeholder="Todos los canales" />
       </SelectTrigger>
       <SelectContent>
@@ -196,8 +204,8 @@ function SortMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" className="h-8 w-8 shrink-0 bg-background/50">
-          <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-muted/50 rounded-full">
+          <ArrowUpDown className="h-3.5 w-3.5" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
@@ -213,40 +221,39 @@ function SortMenu() {
 }
 
 function FilterMenu() {
+  // Icons fixed in import
   const filters = [
     { id: "status", label: "Estado", icon: AlertCircle },
     { id: "priority", label: "Prioridad", icon: Flag },
-    { id: "assigned", label: "Nombre Asignado", icon: Users },
-    { id: "inbox", label: "Bandeja de entrada", icon: Layers },
-    { id: "team", label: "Nombre del equipo", icon: Briefcase },
-    { id: "conv_id", label: "ID Conversación", icon: Hash },
+    { id: "assigned", label: "Asignado", icon: Users },
+    { id: "inbox", label: "Bandeja", icon: Layers },
+    { id: "team", label: "Equipo", icon: Briefcase },
+    { id: "conv_id", label: "ID Conv.", icon: Hash },
     { id: "campaign", label: "Campaña", icon: MessageSquare },
     { id: "tags", label: "Etiquetas", icon: Tag },
-    { id: "browser_lang", label: "Idioma navegador", icon: Globe },
-    { id: "country", label: "País", icon: Globe }, // Reusing globe for country
-    { id: "referral", label: "Referencia", icon: Layers },
-    { id: "created_at", label: "Creado el", icon: Calendar },
-    { id: "last_activity", label: "Última actividad", icon: Clock },
+    { id: "browser_lang", label: "Idioma", icon: Globe },
+    { id: "created_at", label: "Fecha creación", icon: Calendar },
+    { id: "last_activity", label: "Actividad", icon: Clock },
   ];
 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="icon" className="h-8 w-8 shrink-0 bg-background/50">
-          <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-muted/50 rounded-full">
+          <Filter className="h-3.5 w-3.5" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 p-0">
         <div className="p-3 border-b bg-muted/20">
           <h4 className="font-medium text-sm">Filtrar vista</h4>
-          <p className="text-xs text-muted-foreground">Selecciona los campos visibles</p>
+          <p className="text-xs text-muted-foreground">Selecciona filtro</p>
         </div>
         <ScrollArea className="h-72">
           <div className="p-2 space-y-1">
             {filters.map((filter) => (
-              <div key={filter.id} className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer">
+              <div key={filter.id} className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md cursor-pointer transition-colors">
                 <Checkbox id={filter.id} />
-                <Label htmlFor={filter.id} className="flex items-center gap-2 text-sm font-normal cursor-pointer flex-1">
+                <Label htmlFor={filter.id} className="flex items-center gap-2 text-xs font-normal cursor-pointer flex-1">
                   <filter.icon className="h-3.5 w-3.5 text-muted-foreground" />
                   {filter.label}
                 </Label>
@@ -254,9 +261,9 @@ function FilterMenu() {
             ))}
           </div>
         </ScrollArea>
-        <div className="p-2 border-t bg-muted/20 flex justify-end">
+        <div className="p-2 border-t bg-muted/20 flex justify-end gap-2">
           <Button size="sm" variant="ghost" className="h-7 text-xs">Limpiar</Button>
-          <Button size="sm" className="h-7 text-xs ml-2">Aplicar</Button>
+          <Button size="sm" className="h-7 text-xs">Aplicar</Button>
         </div>
       </PopoverContent>
     </Popover>
