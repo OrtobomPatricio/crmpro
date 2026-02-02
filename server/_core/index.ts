@@ -18,6 +18,7 @@ import { users, appSettings } from "../../drizzle/schema";
 import { initReminderScheduler } from "../reminderScheduler";
 import { startCampaignWorker } from "../services/campaign-worker";
 import { startLogCleanup } from "../services/cleanup-logs";
+import { startAutoBackup } from "../services/auto-backup";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -155,6 +156,16 @@ async function startServer() {
   const RATE_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS ?? "60000");
   const RATE_MAX = Number(process.env.RATE_LIMIT_MAX ?? "600");
   const buckets = new Map<string, { count: number; resetAt: number }>();
+
+  // Memory leak prevention: clean up expired buckets periodically
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, bucket] of buckets.entries()) {
+      if (now > bucket.resetAt) {
+        buckets.delete(key);
+      }
+    }
+  }, 300000); // 5 minutes
 
   // Health check for Docker/K8s
   app.get("/api/health", (_req, res) => res.json({ status: "ok", timestamp: new Date().toISOString() }));
@@ -391,6 +402,7 @@ async function startServer() {
     initReminderScheduler();
     startCampaignWorker();
     startLogCleanup();
+    startAutoBackup();
   });
 }
 
