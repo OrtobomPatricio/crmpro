@@ -19,6 +19,15 @@ export function serveStatic(app: Express) {
     if (!fs.existsSync(root)) {
         throw new Error(`Static root not found: ${root}. Build the client first.`);
     }
+    console.log("📂 Serving static files from:", root);
+    // Explicitly debug assets path
+    const assetsPath = path.join(root, "assets");
+    if (fs.existsSync(assetsPath)) {
+        console.log("✅ Assets folder found at:", assetsPath);
+    } else {
+        console.error("❌ Assets folder MISSING at:", assetsPath);
+    }
+
 
     app.use(
         express.static(root, {

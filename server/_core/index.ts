@@ -163,14 +163,21 @@ async function startServer() {
         return callback(null, true);
       }
 
+      // Normalize origins (remove trailing slashes)
+      const normalize = (url: string) => url ? url.replace(/\/$/, "") : "";
+
       const allowedOrigins = [
         process.env.CLIENT_URL,
         process.env.VITE_API_URL,
-      ].filter(Boolean);
+      ].filter(Boolean).map(url => normalize(url!));
 
-      if (allowedOrigins.includes(origin)) {
+      const normalizedOrigin = normalize(origin);
+
+      if (allowedOrigins.includes(normalizedOrigin)) {
         callback(null, true);
       } else {
+        console.warn(`[CORS] Blocked request from origin: '${origin}' (Normalized: '${normalizedOrigin}')`);
+        console.warn(`[CORS] Allowed list: ${JSON.stringify(allowedOrigins)}`);
         callback(new Error("Not allowed by CORS"));
       }
     },
@@ -455,6 +462,15 @@ async function startServer() {
   if (port !== preferredPort) {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
   }
+
+  // GLOBAL ERROR HANDLER (DEBUG)
+  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error("🔴 APP ERROR:", err);
+    console.error("Stack:", err.stack);
+    if (!res.headersSent) {
+      res.status(500).send("Internal Application Error");
+    }
+  });
 
   server.listen(port, "0.0.0.0", () => {
     console.log(`Server running on http://0.0.0.0:${port}`);
