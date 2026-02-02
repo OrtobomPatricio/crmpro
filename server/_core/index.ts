@@ -108,7 +108,6 @@ async function startServer() {
       const allowedOrigins = [
         process.env.CLIENT_URL,
         process.env.VITE_API_URL,
-        "http://168.231.98.244:3000" // Hardcoded VPS IP fallback
       ].filter(Boolean);
 
       if (allowedOrigins.includes(origin)) {
@@ -125,7 +124,6 @@ async function startServer() {
   const allowedSet = new Set([
     process.env.CLIENT_URL,
     process.env.VITE_API_URL,
-    "http://168.231.98.244:3000" // Hardcoded VPS IP fallback
   ].filter(Boolean) as string[]);
 
   app.use((req, res, next) => {
