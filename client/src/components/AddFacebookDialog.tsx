@@ -38,7 +38,7 @@ export function AddFacebookDialog() {
     };
 
     return (
-        <Dialog open={open} onValueChange={setOpen}>
+        <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button variant="outline">
                     <Plus className="w-4 h-4 mr-2" />
@@ -55,7 +55,7 @@ export function AddFacebookDialog() {
 
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label html For="fbName">Nombre de la Página</Label>
+                        <Label htmlFor="fbName">Nombre de la Página</Label>
                         <Input
                             id="fbName"
                             placeholder="ej: Mi Empresa"

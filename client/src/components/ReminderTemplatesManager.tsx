@@ -31,27 +31,27 @@ export function ReminderTemplatesManager() {
     });
 
     // Nota: Este router necesita ser implementado en el backend
-    const { data: templates, isLoading } = trpc.scheduling?.reminderTemplates?.list?.useQuery() || { data: [], isLoading: false };
+    const { data: templates, isLoading } = trpc.scheduling.getTemplates.useQuery();
     const utils = trpc.useUtils();
 
-    const createTemplate = trpc.scheduling?.reminderTemplates?.create?.useMutation({
+    const createTemplate = trpc.scheduling.saveTemplate.useMutation({
         onSuccess: () => {
-            toast.success("Plantilla creada");
-            utils.scheduling.reminderTemplates.list.invalidate();
+            toast.success("Plantilla guardada");
+            utils.scheduling.getTemplates.invalidate();
             setOpen(false);
             resetForm();
         },
         onError: (e: any) => toast.error(`Error: ${e.message}`),
-    }) || { mutate: () => { }, isPending: false };
+    });
 
-    const deleteTemplate = trpc.scheduling?.reminderTemplates?.delete?.useMutation({
+    const deleteTemplate = trpc.scheduling.deleteTemplate.useMutation({
         onSuccess: () => {
             toast.success("Plantilla eliminada");
-            utils.scheduling.reminderTemplates.list.invalidate();
+            utils.scheduling.getTemplates.invalidate();
             setDeleteId(null);
         },
         onError: (e: any) => toast.error(`Error: ${e.message}`),
-    }) || { mutate: () => { }, isPending: false };
+    });
 
     const resetForm = () => {
         setForm({ name: "", body: "", triggerBefore: 60 });
@@ -63,7 +63,11 @@ export function ReminderTemplatesManager() {
             toast.error("Nombre y contenido son obligatorios");
             return;
         }
-        createTemplate.mutate(form);
+        createTemplate.mutate({
+            name: form.name,
+            content: form.body,
+            daysBefore: form.triggerBefore, // Mapping UI 'Minutos' to server param (renaming needed in server later if strictly days)
+        });
     };
 
     return (

@@ -22,11 +22,11 @@ declare global {
 }
 
 // Serialize user for session
-passport.serializeUser((user, done) => {
+passport.serializeUser((user: any, done: any) => {
     done(null, user.openId);
 });
 
-passport.deserializeUser(async (openId: string, done) => {
+passport.deserializeUser(async (openId: string, done: any) => {
     try {
         const user = await db.getUserByOpenId(openId);
         done(null, user || null);
@@ -74,7 +74,7 @@ export function registerNativeOAuth(app: Express) {
                     clientSecret: googleClientSecret,
                     callbackURL: `${baseUrl}/api/auth/google/callback`,
                 },
-                async (accessToken, refreshToken, profile, done) => {
+                async (accessToken: any, refreshToken: any, profile: any, done: any) => {
                     try {
                         const user: Express.User = {
                             openId: profile.id,
@@ -122,6 +122,8 @@ export function registerNativeOAuth(app: Express) {
                     const sessionToken = await sdk.createSessionToken(user.openId, {
                         name: user.name || '',
                         expiresInMs: ONE_YEAR_MS,
+                        ipAddress: req.ip,
+                        userAgent: req.headers["user-agent"] as string,
                     });
 
                     // Set cookie
@@ -163,7 +165,7 @@ export function registerNativeOAuth(app: Express) {
                     validateIssuer: true,
                     passReqToCallback: false,
                 },
-                async (iss, sub, profile, accessToken, refreshToken, done) => {
+                async (iss: any, sub: any, profile: any, accessToken: any, refreshToken: any, done: any) => {
                     try {
                         const user: Express.User = {
                             openId: profile.oid || profile.sub || sub,
@@ -195,7 +197,7 @@ export function registerNativeOAuth(app: Express) {
             }),
             async (req: Request, res: Response) => {
                 try {
-                    const user = req.user as Express.User;
+                    const user = (req as any).user;
                     if (!user || !user.openId) {
                         return res.redirect('/login?error=no_user_data');
                     }
@@ -235,7 +237,7 @@ export function registerNativeOAuth(app: Express) {
     // Logout route
     app.get('/api/auth/logout', (req: Request, res: Response) => {
         res.clearCookie(COOKIE_NAME);
-        req.logout((err) => {
+        (req as any).logout((err: any) => {
             if (err) {
                 console.error('[OAuth] Logout error:', err);
             }

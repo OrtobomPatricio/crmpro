@@ -14,7 +14,7 @@ export function SecurityTabContent() {
         refetchOnWindowFocus: false,
     });
 
-    const sessionsQuery = trpc.security.listActiveSessions.useQuery(undefined, {
+    const sessionsQuery = trpc.sessions.list.useQuery(undefined, {
         refetchOnWindowFocus: false,
     });
 
@@ -40,7 +40,7 @@ export function SecurityTabContent() {
         onError: (e: any) => toast.error(e.message)
     });
 
-    const revokeSession = trpc.security.revokeSession.useMutation({
+    const revokeSession = trpc.sessions.revoke.useMutation({
         onSuccess: () => {
             toast.success("Sesión revocada");
             sessionsQuery.refetch();
@@ -222,7 +222,7 @@ export function SecurityTabContent() {
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
-                                                    onClick={() => revokeSession.mutate({ sessionId: session.id })}
+                                                    onClick={() => revokeSession.mutate({ id: session.id })}
                                                     disabled={revokeSession.isPending}
                                                 >
                                                     <XCircle className="w-4 h-4 mr-1" />

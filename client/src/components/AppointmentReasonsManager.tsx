@@ -27,27 +27,27 @@ export function AppointmentReasonsManager() {
         color: "#3b82f6",
     });
 
-    const { data: reasons, isLoading } = trpc.scheduling?.reasons?.list?.useQuery() || { data: [], isLoading: false };
+    const { data: reasons, isLoading } = trpc.scheduling.listReasons.useQuery();
     const utils = trpc.useUtils();
 
-    const createReason = trpc.scheduling?.reasons?.create?.useMutation({
+    const createReason = trpc.scheduling.createReason.useMutation({
         onSuccess: () => {
             toast.success("Tipo de cita creado");
-            utils.scheduling.reasons.list.invalidate();
+            utils.scheduling.listReasons.invalidate();
             setOpen(false);
             setForm({ name: "", color: "#3b82f6" });
         },
         onError: (e: any) => toast.error(`Error: ${e.message}`),
-    }) || { mutate: () => { }, isPending: false };
+    });
 
-    const deleteReason = trpc.scheduling?.reasons?.delete?.useMutation({
+    const deleteReason = trpc.scheduling.deleteReason.useMutation({
         onSuccess: () => {
             toast.success("Tipo eliminado");
-            utils.scheduling.reasons.list.invalidate();
+            utils.scheduling.listReasons.invalidate();
             setDeleteId(null);
         },
         onError: (e: any) => toast.error(`Error: ${e.message}`),
-    }) || { mutate: () => { }, isPending: false };
+    });
 
     const handleSubmit = () => {
         if (!form.name) {

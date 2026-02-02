@@ -42,7 +42,7 @@ export function CustomFieldsManager() {
             setOpen(false);
             resetForm();
         },
-        onError: (e) => toast.error(`Error: ${e.message}`),
+        onError: (e: any) => toast.error(`Error: ${e.message}`),
     });
 
     const updateField = trpc.customFields.update.useMutation({
@@ -52,7 +52,7 @@ export function CustomFieldsManager() {
             setOpen(false);
             resetForm();
         },
-        onError: (e) => toast.error(`Error: ${e.message}`),
+        onError: (e: any) => toast.error(`Error: ${e.message}`),
     });
 
     const deleteField = trpc.customFields.delete.useMutation({
@@ -61,7 +61,7 @@ export function CustomFieldsManager() {
             utils.customFields.list.invalidate();
             setDeleteId(null);
         },
-        onError: (e) => toast.error(`Error: ${e.message}`),
+        onError: (e: any) => toast.error(`Error: ${e.message}`),
     });
 
     const resetForm = () => {
@@ -83,7 +83,7 @@ export function CustomFieldsManager() {
 
         const payload: any = {
             name: form.name,
-            fieldType: form.fieldType,
+            type: form.fieldType,
             entityType: form.entityType,
             isRequired: form.isRequired,
         };
@@ -103,7 +103,7 @@ export function CustomFieldsManager() {
         setEditingField(field);
         setForm({
             name: field.name,
-            fieldType: field.fieldType,
+            fieldType: field.type,
             options: field.options ? JSON.parse(field.options).join(", ") : "",
             entityType: field.entityType,
             isRequired: field.isRequired || false,
@@ -220,7 +220,7 @@ export function CustomFieldsManager() {
                                 {fields.map((field) => (
                                     <TableRow key={field.id}>
                                         <TableCell className="font-medium">{field.name}</TableCell>
-                                        <TableCell className="capitalize">{field.fieldType}</TableCell>
+                                        <TableCell className="capitalize">{field.type}</TableCell>
                                         <TableCell className="capitalize">{field.entityType}s</TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">

@@ -11,8 +11,16 @@ interface CSVActionsProps {
 export function CSVActions({ onRefresh }: CSVActionsProps) {
     const [importing, setImporting] = useState(false);
 
-    const exportCSV = trpc.backup.exportLeadsCSV.useMutation({
-        onSuccess: (data) => {
+    const { refetch: exportCSV, isFetching: isExporting } = trpc.backup.exportLeadsCSV.useQuery(undefined, {
+        enabled: false,
+    });
+
+    const handleExport = async () => {
+        try {
+            const result = await exportCSV();
+            const data = result.data;
+            if (!data) return;
+
             const blob = new Blob([data.csv], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -24,18 +32,17 @@ export function CSVActions({ onRefresh }: CSVActionsProps) {
             URL.revokeObjectURL(url);
 
             toast.success(`${data.count} leads exportados`);
-        },
-        onError: (e) => {
+        } catch (e: any) {
             toast.error(`Error: ${e.message}`);
-        },
-    });
+        }
+    };
 
     const importCSV = trpc.backup.importLeadsCSV.useMutation({
-        onSuccess: (data) => {
+        onSuccess: (data: any) => {
             toast.success(`Importados: ${data.imported} | Errores: ${data.errors}`);
             onRefresh?.();
         },
-        onError: (e) => {
+        onError: (e: any) => {
             toast.error(`Error: ${e.message}`);
         },
     });
@@ -57,11 +64,11 @@ export function CSVActions({ onRefresh }: CSVActionsProps) {
             <Button
                 variant="outline"
                 size="sm"
-                onClick={() => exportCSV.mutate()}
-                disabled={exportCSV.isPending}
+                onClick={handleExport}
+                disabled={isExporting}
             >
                 <Download className="w-4 h-4 mr-2" />
-                {exportCSV.isPending ? "Exportando..." : "Exportar CSV"}
+                {isExporting ? "Exportando..." : "Exportar CSV"}
             </Button>
 
             <Button

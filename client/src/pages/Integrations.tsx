@@ -211,9 +211,9 @@ function SmtpSettings() {
   const updateSmtp = trpc.settings.updateSmtpConfig.useMutation({
     onSuccess: () => { toast.success("SMTP guardado"); utils.settings.get.invalidate(); }
   });
-  const testSmtp = trpc.settings.verifySmtpTest.useMutation({
+  const testSmtp = trpc.smtp.verifySmtpTest.useMutation({
     onSuccess: () => toast.success("Email enviado"),
-    onError: (e) => toast.error(e.message)
+    onError: (e: any) => toast.error(e.message)
   });
 
   const [form, setForm] = useState({ host: "", port: 587, secure: false, user: "", pass: "", from: "" });

@@ -1,7 +1,8 @@
 import { ENV } from "./env";
 
 export function validateProductionSecrets() {
-    if (!ENV.isProduction) return;
+    const isProduction = process.env.NODE_ENV === "production";
+    if (!isProduction) return;
 
     const INSECURE_DEFAULTS = [
         "dev-secret-change-me",

@@ -170,7 +170,7 @@ class SDKServer {
    */
   async createSessionToken(
     openId: string,
-    options: { expiresInMs?: number; name?: string } = {}
+    options: { expiresInMs?: number; name?: string; ipAddress?: string | null; userAgent?: string | null } = {}
   ): Promise<string> {
     return this.signSession(
       {
@@ -184,7 +184,7 @@ class SDKServer {
 
   async signSession(
     payload: SessionPayload,
-    options: { expiresInMs?: number } = {}
+    options: { expiresInMs?: number; ipAddress?: string | null; userAgent?: string | null } = {}
   ): Promise<string> {
     const issuedAt = Date.now();
     const expiresInMs = options.expiresInMs ?? ONE_YEAR_MS;
@@ -213,8 +213,8 @@ class SDKServer {
           await database.insert(sessions).values({
             userId: u[0].id,
             sessionToken: jti, // Guardamos el JTI, no el token entero (seguridad)
-            ipAddress: null, // Podríamos capturarlo si pasáramos req
-            userAgent: null,
+            ipAddress: options.ipAddress ?? null,
+            userAgent: options.userAgent ?? null,
             expiresAt: new Date(issuedAt + expiresInMs),
             lastActivityAt: new Date(),
           });
@@ -230,7 +230,7 @@ class SDKServer {
 
   async verifySession(
     cookieValue: string | undefined | null
-  ): Promise<{ openId: string; appId: string; name: string } | null> {
+  ): Promise<{ openId: string; appId: string; name: string; jti?: string } | null> {
     if (!cookieValue) {
       console.warn("[Auth] Missing session cookie");
       return null;
@@ -258,8 +258,8 @@ class SDKServer {
               console.warn("[Auth] Session revoked or invalid (JTI not found)");
               return null;
             }
-            // Optional: Update lastActivityAt (async, don't await/block)
-            // database.update(sessions).set({ lastActivityAt: new Date() }).where(eq(sessions.id, session[0].id)).catch(() => {});
+            // Update lastActivityAt
+            database.update(sessions).set({ lastActivityAt: new Date() }).where(eq(sessions.id, session[0].id)).catch(() => { });
           }
         } catch (e) {
           console.error("[Auth] DB session check failed", e);
@@ -271,8 +271,8 @@ class SDKServer {
       return {
         openId: openId as string,
         appId: appId as string,
-        // name is optional (some OAuth providers may not return it)
         name: typeof name === "string" ? name : "",
+        jti: typeof jti === "string" ? jti : undefined,
       };
     } catch (error) {
       console.warn("[Auth] Session verification failed", String(error));
@@ -313,6 +313,10 @@ class SDKServer {
     if (!session) {
       console.warn(`[Auth] Invalid session cookie. Content-Length: ${req.headers.cookie?.length ?? 0}`);
       throw ForbiddenError("Invalid session cookie");
+    }
+
+    if (session.jti) {
+      (req as any).sessionJti = session.jti;
     }
 
     const sessionUserId = session.openId;

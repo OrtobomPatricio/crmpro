@@ -12,17 +12,19 @@ export default function InternalChatPage() {
     const [message, setMessage] = useState("");
     const [selectedRecipient, setSelectedRecipient] = useState<number | null>(null);
 
-    const { data: messages, isLoading } = trpc.internalChat.list.useQuery(undefined, {
-        refetchInterval: 5000, // Poll every 5 seconds
+    const { data: messages, isLoading } = trpc.internalChat.getHistory.useQuery({
+        recipientId: selectedRecipient ?? null
+    }, {
+        refetchInterval: 5000,
     });
 
-    const { data: team } = trpc.team.list.useQuery();
+    const { data: team } = trpc.team.listUsers.useQuery();
     const utils = trpc.useUtils();
 
     const sendMutation = trpc.internalChat.send.useMutation({
         onSuccess: () => {
             setMessage("");
-            utils.internalChat.list.invalidate();
+            utils.internalChat.getHistory.invalidate();
             toast.success("Mensaje enviado");
         },
         onError: (e: any) => {
@@ -30,9 +32,10 @@ export default function InternalChatPage() {
         },
     });
 
-    const markReadMutation = trpc.internalChat.markRead.useMutation({
+    const markReadMutation = trpc.internalChat.markAsRead.useMutation({
         onSuccess: () => {
-            utils.internalChat.list.invalidate();
+            utils.internalChat.getHistory.invalidate();
+            utils.internalChat.getRecentChats.invalidate();
         },
     });
 
@@ -45,17 +48,20 @@ export default function InternalChatPage() {
     };
 
     useEffect(() => {
-        // Mark all messages as read when opening the page
+        // Mark messages as read when viewing chat
         if (messages && messages.length > 0) {
-            const unreadIds = messages
-                .filter((m: any) => !m.isRead && m.recipientId)
-                .map((m: any) => m.id);
+            // We can just call markAsRead for current sender
+            // But we need to know who sent the messages.
+            // If it's a specific user chat (selectedRecipient != null), mark from that user.
+            // If it's general (null), we might not mark read? Or mark all general as read?
+            // The router supports markAsRead({ senderId: null }) for general?
+            // Let's assume we mark read for the current context.
 
-            if (unreadIds.length > 0) {
-                markReadMutation.mutate({ messageIds: unreadIds });
-            }
+            markReadMutation.mutate({
+                senderId: selectedRecipient || null // null for general channel
+            });
         }
-    }, [messages]);
+    }, [messages, selectedRecipient]);
 
     return (
         <div className="container mx-auto p-6">
@@ -135,8 +141,8 @@ export default function InternalChatPage() {
                                             <div
                                                 key={msg.id}
                                                 className={`flex flex-col gap-1 p-3 rounded-lg ${msg.senderId === msg.currentUserId
-                                                        ? "bg-primary/10 ml-auto max-w-[70%]"
-                                                        : "bg-muted max-w-[70%]"
+                                                    ? "bg-primary/10 ml-auto max-w-[70%]"
+                                                    : "bg-muted max-w-[70%]"
                                                     }`}
                                             >
                                                 <div className="flex items-center gap-2">

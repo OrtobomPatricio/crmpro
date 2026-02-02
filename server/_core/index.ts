@@ -4,6 +4,9 @@ import { createServer } from "http";
 import net from "net";
 import cors from "cors";
 import helmet from "helmet";
+import * as Sentry from "@sentry/node";
+// import { Handlers } from "@sentry/node"; // Missing in v8+
+import Redis from "ioredis";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerNativeOAuth } from "./native-oauth";
@@ -19,6 +22,7 @@ import { initReminderScheduler } from "../reminderScheduler";
 import { startCampaignWorker } from "../services/campaign-worker";
 import { startLogCleanup } from "../services/cleanup-logs";
 import { startAutoBackup } from "../services/auto-backup";
+import { startSessionCleanup } from "../services/cleanup-sessions";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -57,6 +61,35 @@ async function startServer() {
   const app = express();
   app.disable("x-powered-by");
 
+  // Rate Limit Config (Redis)
+  const RATE_MAX_REDIS = 100;
+  const redis = process.env.REDIS_URL ? new Redis(process.env.REDIS_URL) : null;
+
+  if (redis) {
+    console.log("✅ Redis Rate Limiting enabled");
+    redis.on("error", (err) => console.error("Redis Client Error", err));
+
+    app.use(async (req, res, next) => {
+      // Skip logic for static assets
+      if (req.method === "OPTIONS") return next();
+      // Skip public routes
+      if (req.path.startsWith("/api/whatsapp") || req.path.startsWith("/api/webhooks")) return next();
+
+      try {
+        const key = `ratelimit:${req.ip}`;
+        const count = await redis.incr(key);
+        if (count === 1) await redis.expire(key, 60);
+        if (count > RATE_MAX_REDIS) {
+          res.setHeader("Retry-After", 60);
+          return res.status(429).json({ error: "Too Many Requests" });
+        }
+      } catch (e) {
+        console.error("Rate Limit Error:", e);
+      }
+      next();
+    });
+  }
+
   // Only trust proxy if explicitly enabled (prevents IP spoofing on rate limit)
   if (process.env.TRUST_PROXY === "1") {
     app.set("trust proxy", 1);
@@ -66,6 +99,18 @@ async function startServer() {
   // Basic security headers (without extra deps)
   // Security Middleware
   const isProd = process.env.NODE_ENV === "production";
+
+  if (process.env.SENTRY_DSN) {
+    // Sentry.init({
+    //   dsn: process.env.SENTRY_DSN,
+    //   environment: process.env.NODE_ENV,
+    //   tracesSampleRate: 0.1,
+    // });
+    // TODO: Update Sentry for v8+ (Handlers removed)
+    // app.use(Sentry.Handlers.requestHandler() as any);
+    // app.use(Sentry.Handlers.tracingHandler() as any);
+    // console.log("✅ Sentry initialized"); // This line was removed as per instruction
+  }
 
   // Basic security headers (without extra deps)
   // Security Middleware
@@ -89,6 +134,17 @@ async function startServer() {
   }));
 
   // Force removal of HSTS header just in case
+  app.use((_req, res, next) => {
+    res.removeHeader("Strict-Transport-Security");
+    next();
+  });
+
+  app.use(async (req, res, next) => {
+    if (req.path.startsWith("/api/whatsapp")) return next();
+
+    // existing memory fallback or just next if using redis
+    next();
+  });
   app.use((_req, res, next) => {
     res.removeHeader("Strict-Transport-Security");
     next();
@@ -239,6 +295,11 @@ async function startServer() {
   registerNativeOAuth(app);
 
   // Legacy OAuth callback (backward compatibility if needed)
+  if (process.env.SENTRY_DSN) {
+    // TODO: Update Sentry for v8+
+    // app.use(Sentry.Handlers.errorHandler() as any);
+  }
+
   registerOAuthRoutes(app);
 
   // WhatsApp Cloud API webhook
@@ -403,6 +464,7 @@ async function startServer() {
     startCampaignWorker();
     startLogCleanup();
     startAutoBackup();
+    startSessionCleanup();
   });
 }
 

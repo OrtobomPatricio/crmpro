@@ -22,6 +22,14 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+
 export default function WorkflowsPage() {
     const [open, setOpen] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -91,8 +99,8 @@ export default function WorkflowsPage() {
 
         const payload = {
             name: form.name,
-            description: form.description || null,
-            triggerType: form.triggerType,
+            description: form.description || undefined,
+            triggerType: form.triggerType as "lead_created" | "lead_updated" | "msg_received" | "campaign_link_clicked",
             action: form.action,
             conditions: form.conditions,
         };
@@ -167,12 +175,20 @@ export default function WorkflowsPage() {
 
                             <div className="grid gap-2">
                                 <Label htmlFor="trigger">Trigger (Disparador)</Label>
-                                <Input
-                                    id="trigger"
-                                    placeholder="ej: lead.created, lead.won, message.received"
+                                <Select
                                     value={form.triggerType}
-                                    onChange={(e) => setForm(p => ({ ...p, triggerType: e.target.value }))}
-                                />
+                                    onValueChange={(v) => setForm(p => ({ ...p, triggerType: v }))}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Seleccionar evento" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="lead_created">Nuevo Lead</SelectItem>
+                                        <SelectItem value="lead_updated">Lead Actualizado</SelectItem>
+                                        <SelectItem value="msg_received">Mensaje Recibido</SelectItem>
+                                        <SelectItem value="campaign_link_clicked">Link de Campaña Clickeado</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
 
                             <div className="grid gap-2">

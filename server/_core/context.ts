@@ -6,6 +6,7 @@ export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
   res: CreateExpressContextOptions["res"];
   user: User | null;
+  sessionJti?: string;
 };
 
 export async function createContext(
@@ -24,5 +25,6 @@ export async function createContext(
     req: opts.req,
     res: opts.res,
     user,
+    sessionJti: (opts.req as any).sessionJti,
   };
 }

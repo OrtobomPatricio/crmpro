@@ -23,7 +23,7 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
                         return;
                     }
 
-                    emailEditorRef.current.editor.exportHtml((data) => {
+                    emailEditorRef.current.editor.exportHtml((data: any) => {
                         const { html, design } = data;
                         resolve({ html, design });
                     });
