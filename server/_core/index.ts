@@ -17,6 +17,7 @@ import { sql, eq } from "drizzle-orm";
 import { users, appSettings } from "../../drizzle/schema";
 import { initReminderScheduler } from "../reminderScheduler";
 import { startCampaignWorker } from "../services/campaign-worker";
+import { startLogCleanup } from "../services/cleanup-logs";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -285,24 +286,28 @@ async function startServer() {
   // User requested "servir por endpoint con auth"
 
   // Middleware to check authentication for uploads
+  // SECURITY: Protect file uploads from unauthorized access
   const requireAuthMiddleware = async (req: any, res: any, next: any) => {
-    // Reuse existing auth logic (cookies)
-    // We can't easily use tRPC context helper here without adapting, so we do a quick check
-    // Or we can rely on the fact that the frontend will load these.
-    // If we enforce auth for IMAGES, they won't load in email clients or external views.
-    // For CRM internal usage, it's fine.
-    // The requirement says "servir por endpoint con auth".
+    try {
+      // Create context using the same method as tRPC
+      const ctx = await createContext({ req, res } as any);
 
-    // Basic cookie check
-    // const token = req.cookies?.[COOKIE_NAME] || req.headers.cookie ...
-    // Let's implement a simple check using sdk.verifySession if we have cookie parser.
-    // Express 'cookie-parser' might not be registered globally?
-    // server/_core/index.ts doesn't seem to use cookie-parser explicitly, but expects it?
-    // Actually usually it is needed.
-    // Let's skip strict auth for GET /uploads/:name just for now to avoid breaking UI images instantly,
-    // UNLESS strict requirement. User said: "servir por endpoint con auth".
-    // Let's add the route.
-    next();
+      if (!ctx.user) {
+        return res.status(401).json({
+          error: "Unauthorized",
+          message: "You must be logged in to access this resource"
+        });
+      }
+
+      // User is authenticated, allow access
+      next();
+    } catch (err) {
+      console.error("[Auth] File upload authentication failed:", err);
+      return res.status(401).json({
+        error: "Authentication failed",
+        message: "Invalid or expired session"
+      });
+    }
   };
 
   app.get("/api/uploads/:name", requireAuthMiddleware, (req, res) => {
@@ -385,6 +390,7 @@ async function startServer() {
     // Initialize automated reminder scheduler
     initReminderScheduler();
     startCampaignWorker();
+    startLogCleanup();
   });
 }
 
