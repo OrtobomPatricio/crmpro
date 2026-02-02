@@ -59,6 +59,8 @@ services:
       WHATSAPP_GRAPH_VERSION: ${WHATSAPP_GRAPH_VERSION:-v19.0}
       WHATSAPP_GRAPH_BASE_URL: ${WHATSAPP_GRAPH_BASE_URL:-https://graph.facebook.com}
       RUN_MIGRATIONS: "1"
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:3000}
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
     volumes:
       - uploads_data:/app/dist/public/uploads
     logging:
