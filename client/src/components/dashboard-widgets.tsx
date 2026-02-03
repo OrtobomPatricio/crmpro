@@ -265,6 +265,8 @@ export function WarmupWidget() {
 }
 
 export function StatusWidget() {
+    const { data: connections } = trpc.whatsapp.list.useQuery();
+
     return (
         <Card className="h-full flex flex-col">
             <CardHeader>
@@ -274,35 +276,30 @@ export function StatusWidget() {
                 </CardTitle>
                 <CardDescription>Monitoreo de conexiones WhatsApp</CardDescription>
             </CardHeader>
-            <CardContent className="flex-1">
+            <CardContent className="flex-1 overflow-auto">
                 <div className="space-y-3">
-                    <div className="flex items-center justify-between p-2 border rounded bg-card">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-green-500" />
-                            <span className="font-medium text-sm">+595 981 123 456</span>
-                        </div>
-                        <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full dark:bg-green-900/30 dark:text-green-400">
-                            Conectado
-                        </span>
-                    </div>
-                    <div className="flex items-center justify-between p-2 border rounded bg-card">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-red-500" />
-                            <span className="font-medium text-sm">+595 971 654 321</span>
-                        </div>
-                        <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full dark:bg-red-900/30 dark:text-red-400">
-                            Desconectado
-                        </span>
-                    </div>
-                    <div className="flex items-center justify-between p-2 border rounded bg-card">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-yellow-500" />
-                            <span className="font-medium text-sm">+595 991 111 222</span>
-                        </div>
-                        <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full dark:bg-yellow-900/30 dark:text-yellow-400">
-                            Sincronizando
-                        </span>
-                    </div>
+                    {!connections || connections.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                            No hay números conectados
+                        </p>
+                    ) : (
+                        connections.map(conn => (
+                            <div key={conn.id} className="flex items-center justify-between p-2 border rounded bg-card">
+                                <div className="flex items-center gap-2">
+                                    <div className={`w-2 h-2 rounded-full ${conn.isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+                                    <span className="font-medium text-sm">
+                                        {conn.number?.phoneNumber || 'Número desconocido'}
+                                    </span>
+                                </div>
+                                <span className={`text-xs px-2 py-1 rounded-full ${conn.isConnected
+                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                        : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                    }`}>
+                                    {conn.isConnected ? 'Conectado' : 'Desconectado'}
+                                </span>
+                            </div>
+                        ))
+                    )}
                 </div>
             </CardContent>
         </Card>
@@ -310,13 +307,8 @@ export function StatusWidget() {
 }
 
 export function RecentLeadsWidget() {
-    // Mock data for now, would ideally be a trpc query
-    const leads = [
-        { id: 1, name: "Maria Gonzalez", source: "Facebook Ads", status: "Nuevo" },
-        { id: 2, name: "Juan Perez", source: "Instagram", status: "Contactado" },
-        { id: 3, name: "Ana Silva", source: "WhatsApp", status: "En Proceso" },
-        { id: 4, name: "Carlos Ruiz", source: "Web", status: "Cerrado" },
-    ];
+    const { data: stats } = trpc.dashboard.getStats.useQuery();
+    const leads = stats?.recentLeads || [];
 
     return (
         <Card className="h-full flex flex-col">
@@ -327,20 +319,26 @@ export function RecentLeadsWidget() {
                 </CardTitle>
                 <CardDescription>Últimos prospectos ingresados</CardDescription>
             </CardHeader>
-            <CardContent className="flex-1">
-                <div className="space-y-3">
-                    {leads.map(lead => (
-                        <div key={lead.id} className="flex items-center justify-between border-b last:border-0 pb-2 last:pb-0">
-                            <div>
-                                <p className="font-medium text-sm">{lead.name}</p>
-                                <p className="text-xs text-muted-foreground">{lead.source}</p>
+            <CardContent className="flex-1 overflow-auto">
+                {leads.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                        No hay leads recientes
+                    </p>
+                ) : (
+                    <div className="space-y-3">
+                        {leads.map(lead => (
+                            <div key={lead.id} className="flex items-center justify-between border-b last:border-0 pb-2 last:pb-0">
+                                <div>
+                                    <p className="font-medium text-sm">{lead.name || 'Sin nombre'}</p>
+                                    <p className="text-xs text-muted-foreground">{lead.source || 'Desconocido'}</p>
+                                </div>
+                                <span className="text-xs font-semibold px-2 py-1 rounded bg-secondary">
+                                    {lead.status}
+                                </span>
                             </div>
-                            <span className="text-xs font-semibold px-2 py-1 rounded bg-secondary">
-                                {lead.status}
-                            </span>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                )}
             </CardContent>
         </Card>
     );

@@ -59,6 +59,13 @@ async function startServer() {
   await assertDbConstraints();
 
   const app = express();
+
+  // DEBUG LOGGER: Log all requests to see if Meta hits the server
+  app.use((req, res, next) => {
+    console.log(`🌍 [INCOMING] ${req.method} ${req.originalUrl || req.url} from ${req.ip} | Headers: ${JSON.stringify(req.headers['user-agent'])}`);
+    next();
+  });
+
   app.disable("x-powered-by");
 
   // Rate Limit Config (Redis)
