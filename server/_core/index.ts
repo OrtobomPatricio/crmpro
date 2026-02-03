@@ -199,6 +199,11 @@ async function startServer() {
   ].filter(Boolean) as string[]);
 
   app.use((req, res, next) => {
+    // Skip CSRF for Webhooks (WhatsApp / Meta)
+    if (req.path.startsWith("/api/whatsapp") || req.path.startsWith("/api/webhooks") || req.path.startsWith("/api/meta")) {
+      return next();
+    }
+
     // Only verify for mutations
     const method = req.method.toUpperCase();
     if (!["POST", "PUT", "PATCH", "DELETE"].includes(method)) return next();
