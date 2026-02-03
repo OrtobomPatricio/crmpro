@@ -81,20 +81,31 @@ export const chatRouter = router({
 
     listConversations: permissionProcedure("chat.view")
         .input(z.object({ whatsappNumberId: z.number().optional() }))
-        .query(async ({ input }) => {
+        .query(async ({ input, ctx }) => {
             const db = await getDb();
             if (!db) return [];
 
-            if (input.whatsappNumberId) {
-                return db.select()
-                    .from(conversations)
-                    .where(eq(conversations.whatsappNumberId, input.whatsappNumberId))
-                    .orderBy(desc(conversations.lastMessageAt));
+            let whereClause = input.whatsappNumberId ? eq(conversations.whatsappNumberId, input.whatsappNumberId) : undefined;
+
+            // Privacy Filter: Agents only see their assigned chats
+            const userRole = (ctx.user?.role || "viewer") as string;
+            const isPrivileged = ["owner", "admin", "supervisor"].includes(userRole);
+
+            if (!isPrivileged && ctx.user && userRole === "agent") {
+                const assignedFilter = eq(conversations.assignedToId, ctx.user.id);
+                whereClause = whereClause ? and(whereClause, assignedFilter) : assignedFilter;
             }
 
-            return db.select()
-                .from(conversations)
-                .orderBy(desc(conversations.lastMessageAt));
+            // Drizzle requires strict undefined check logic if we want to chain .where optionally, 
+            // but the cleanest way is calling .where() once.
+            const query = db.select()
+                .from(conversations);
+
+            if (whereClause) {
+                query.where(whereClause);
+            }
+
+            return query.orderBy(desc(conversations.lastMessageAt));
         }),
 
     getMessages: permissionProcedure("chat.view")
@@ -116,7 +127,7 @@ export const chatRouter = router({
                 whatsappNumberId: z.number().optional(),
             })
         )
-        .query(async ({ input }) => {
+        .query(async ({ input, ctx }) => {
             const db = await getDb();
             if (!db) return [];
 
@@ -140,18 +151,25 @@ export const chatRouter = router({
                 .from(chatMessages)
                 .innerJoin(conversations, eq(chatMessages.conversationId, conversations.id));
 
-            const whereClause = input.whatsappNumberId
+            const userRole = (ctx.user?.role || "viewer") as string;
+            const isPrivileged = ["owner", "admin", "supervisor"].includes(userRole);
+
+            let whereClause = input.whatsappNumberId
                 ? eq(chatMessages.whatsappNumberId, input.whatsappNumberId)
                 : undefined;
 
-            const rows = whereClause
-                ? await baseQuery
-                    .where(whereClause)
-                    .orderBy(desc(chatMessages.createdAt))
-                    .limit(input.limit)
-                : await baseQuery
-                    .orderBy(desc(chatMessages.createdAt))
-                    .limit(input.limit);
+            if (!isPrivileged && ctx.user && userRole === "agent") {
+                const assignedFilter = eq(conversations.assignedToId, ctx.user.id);
+                whereClause = whereClause ? and(whereClause, assignedFilter) : assignedFilter;
+            }
+
+            const filteredQuery = whereClause
+                ? baseQuery.where(whereClause)
+                : baseQuery;
+
+            const rows = await filteredQuery
+                .orderBy(desc(chatMessages.createdAt))
+                .limit(input.limit);
 
             return rows;
         }),
