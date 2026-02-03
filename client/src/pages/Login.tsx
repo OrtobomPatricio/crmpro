@@ -138,19 +138,7 @@ export default function Login() {
                   Continuar con Google
                 </Button>
 
-                <Button
-                  variant="outline"
-                  className="w-full h-11 bg-card/50 hover:bg-card border-border/50 transition-all duration-300 hover:border-orange-500/30 hover:shadow-md hover:shadow-orange-500/10 transform hover:scale-[1.02] active:scale-[0.98] group"
-                  onClick={() => handleOAuthLogin('microsoft')}
-                >
-                  <svg className="w-5 h-5 mr-3 transition-transform group-hover:scale-110" viewBox="0 0 24 24">
-                    <path fill="#F25022" d="M1 1h10v10H1z" />
-                    <path fill="#00A4EF" d="M1 13h10v10H1z" />
-                    <path fill="#7FBA00" d="M13 1h10v10H13z" />
-                    <path fill="#FFB900" d="M13 13h10v10H13z" />
-                  </svg>
-                  Continuar con Microsoft
-                </Button>
+                {/* Microsoft Login Removed by User Request */}
               </div>
 
               <div className="relative my-2">
