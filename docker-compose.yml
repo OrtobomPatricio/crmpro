@@ -61,6 +61,11 @@ services:
       RUN_MIGRATIONS: "1"
       CLIENT_URL: ${CLIENT_URL:-http://localhost:3000}
       VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
     volumes:
       - uploads_data:/app/dist/public/uploads
     logging:
