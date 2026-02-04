@@ -81,7 +81,7 @@ const menuItems: MenuItem[] = [
   { icon: FileText, label: "Reportes", path: "/reports", requiredPerm: "reports.view" },
   { icon: Workflow, label: "Integraciones", path: "/integrations", requiredPerm: "integrations.view" },
   { icon: LayoutGrid, label: "Pipelines", path: "/settings/pipelines", requiredPerm: "kanban.manage" },
-  { icon: Database, label: "Backups", path: "/backup", roles: ["owner", "admin"] },
+  { icon: Database, label: "Backups", path: "/backup", requiredPerm: "backups.view", roles: ["owner", "admin"] },
   { icon: Settings, label: "Configuración", path: "/settings", requiredPerm: "settings.view" },
 ];
 

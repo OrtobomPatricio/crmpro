@@ -3,7 +3,6 @@ import { AMERICAS_COUNTRIES } from "@/_core/data/americasCountries";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { trpc } from "@/lib/trpc";
 import {
   ArrowUpDown,
   ChevronLeft,
@@ -18,7 +17,6 @@ import {
   Plus,
   Search,
 } from "lucide-react";
-import { useState, useMemo, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -42,16 +40,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -61,249 +49,118 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from "sonner";
 import { useLocation } from "wouter";
-import { normalizePhone, isValidE164 } from "@/lib/phone-utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-type LeadStatus =
-  | "new"
-  | "contacted"
-  | "qualified"
-  | "negotiation"
-  | "won"
-  | "lost";
+import { useLeadsController, type Lead } from "@/hooks/useLeadsController";
 
-interface Lead {
-  id: number;
-  name: string;
-  phone: string;
-  email: string | null;
-  country: string;
-  status: string;
-  pipelineStageId: number | null;
-  source: string | null;
-  notes: string | null;
-  commission: string | null;
-  customFields?: Record<string, any>;
-  createdAt: Date;
-}
-
-const statusConfig: Record<LeadStatus, { label: string; className: string }> = {
+// UI Config
+const statusConfig: Record<string, { label: string; className: string }> = {
   new: { label: "Nuevo", className: "bg-info/15 text-info border-info/20 hover:bg-info/25" },
   contacted: { label: "Contactado", className: "bg-warning/15 text-warning border-warning/20 hover:bg-warning/25" },
   qualified: { label: "Calificado", className: "bg-primary/15 text-primary border-primary/20 hover:bg-primary/25" },
-  negotiation: {
-    label: "Negociación",
-    className: "bg-primary/25 text-primary border-primary/30 hover:bg-primary/35",
-  },
+  negotiation: { label: "Negociación", className: "bg-primary/25 text-primary border-primary/30 hover:bg-primary/35" },
   won: { label: "Ganado", className: "bg-success/15 text-success border-success/20 hover:bg-success/25" },
   lost: { label: "Perdido", className: "bg-destructive/15 text-destructive border-destructive/20 hover:bg-destructive/25" },
 };
 
 const countries = AMERICAS_COUNTRIES.map((c) => ({ value: c.value, label: c.label }));
 
-export default function Leads() {
+const formatCommission = (commission: string | null) => {
+  if (!commission) return "0 G$";
+  const num = Number.parseFloat(commission);
+  if (Number.isNaN(num)) return "0 G$";
+  return `${num.toLocaleString()} G$`;
+};
+
+const formatDate = (date: Date) => {
+  return new Date(date).toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+import { Skeleton } from "@/components/ui/skeleton";
+
+function LeadStatusBadge({ lead, stages }: { lead: Lead; stages: any[] }) {
+  const stage = lead.pipelineStageId ? stages.find((s) => s.id === lead.pipelineStageId) : null;
+
+  if (stage) {
+    return (
+      <Badge
+        variant="outline"
+        className="bg-secondary/50 text-secondary-foreground"
+        style={{
+          borderColor: stage.color,
+          color: stage.color,
+        }}
+      >
+        {stage.name}
+      </Badge>
+    );
+  }
+
+  const config = statusConfig[lead.status];
   return (
-    <LeadsContent />
+    <Badge variant="outline" className={config?.className || ""}>
+      {config?.label || lead.status}
+    </Badge>
   );
 }
 
-function LeadsContent() {
+export default function Leads() {
+  const controller = useLeadsController();
   const [, setLocation] = useLocation();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [stageFilter, setStageFilter] = useState<string>("all");
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newLead, setNewLead] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    country: "",
-    source: "",
-    notes: "",
-  });
 
-  // Advanced Table State
-  const [sortConfig, setSortConfig] = useState<{ key: keyof Lead; direction: 'asc' | 'desc' } | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
-  const [selectedLeads, setSelectedLeads] = useState<number[]>([]);
-  const [leadToDelete, setLeadToDelete] = useState<number | null>(null);
-
-  const utils = trpc.useUtils();
-  const { data: leads, isLoading } = trpc.leads.list.useQuery({
-    pipelineStageId: stageFilter !== "all" ? Number(stageFilter) : undefined,
-  });
-  const { data: pipelines } = trpc.pipelines.list.useQuery();
-  const defaultPipeline = pipelines?.find(p => p.isDefault) || pipelines?.[0];
-  const stages = defaultPipeline?.stages || [];
-
-  const { data: customFieldDefs } = trpc.customFields.list.useQuery();
-  const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
-
-  // Auto-open dialog if URL has ?action=new
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("action") === "new") {
-      setIsAddDialogOpen(true);
-      // Clean up URL
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, "", newUrl);
-    }
-  }, []);
-
-  const createLead = trpc.leads.create.useMutation({
-    onSuccess: (data) => {
-      utils.leads.list.invalidate();
-      setIsAddDialogOpen(false);
-      setNewLead({ name: "", phone: "", email: "", country: "", source: "", notes: "" });
-
-      toast.success("Lead creado exitosamente", {
-        action: {
-          label: "Iniciar Chat",
-          onClick: () => setLocation(`/chat?leadId=${data.id}`),
-        },
-        duration: 5000,
-      });
-    },
-    onError: (error) => {
-      toast.error("Error al crear el lead: " + error.message);
-    },
-  });
-
-  const updateStatus = trpc.leads.updateStatus.useMutation({
-    onSuccess: () => {
-      utils.leads.list.invalidate();
-      toast.success("Estado actualizado");
-    },
-    onError: (error) => toast.error(error.message),
-  });
-
-  const deleteLead = trpc.leads.delete.useMutation({
-    onSuccess: () => {
-      utils.leads.list.invalidate();
-      toast.success("Lead eliminado");
-      setLeadToDelete(null);
-    },
-    onError: (error) => toast.error(error.message),
-  });
-
-  const handleCreateLead = () => {
-    if (!newLead.name || !newLead.phone || !newLead.country) {
-      toast.error("Por favor completa los campos requeridos");
-      return;
-    }
-    // Validate and normalize phone
-    const normalizedPhone = normalizePhone(newLead.phone);
-    if (!isValidE164(normalizedPhone)) {
-      toast.error("El número de teléfono no es válido (E.164). Ejemplo: +595981123456");
-      return;
-    }
-
-    createLead.mutate({
-      name: newLead.name,
-      phone: normalizedPhone,
-      email: newLead.email || undefined,
-      country: newLead.country,
-      source: newLead.source || undefined,
-      notes: newLead.notes || undefined,
-      customFields: customFieldValues,
-    });
-  };
-
-  // Sorting Logic
-  const handleSort = (key: keyof Lead) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  // Filtering, Sorting & Pagination
-  const processedLeads = useMemo(() => {
-    if (!leads) return [];
-
-    let filtered = (leads as Lead[]).filter(
-      (lead) =>
-        lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lead.phone.includes(searchTerm) ||
-        (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-
-    if (sortConfig) {
-      filtered.sort((a, b) => {
-        const aValue = a[sortConfig.key];
-        const bValue = b[sortConfig.key];
-
-        if (aValue === bValue) return 0;
-        if (aValue === null || aValue === undefined) return 1;
-        if (bValue === null || bValue === undefined) return -1;
-
-        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
-
-    return filtered;
-  }, [leads, searchTerm, sortConfig]);
-
-  const totalPages = Math.ceil(processedLeads.length / pageSize);
-  const paginatedLeads = processedLeads.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
-
-  const toggleSelectAll = () => {
-    if (selectedLeads.length === paginatedLeads.length) {
-      setSelectedLeads([]);
-    } else {
-      setSelectedLeads(paginatedLeads.map(l => l.id));
-    }
-  };
-
-  const toggleSelectLead = (id: number) => {
-    if (selectedLeads.includes(id)) {
-      setSelectedLeads(selectedLeads.filter(l => l !== id));
-    } else {
-      setSelectedLeads([...selectedLeads, id]);
-    }
-  };
-
-  const formatCommission = (commission: string | null) => {
-    if (!commission) return "0 G$";
-    const num = Number.parseFloat(commission);
-    if (Number.isNaN(num)) return "0 G$";
-    return `${num.toLocaleString()} G$`;
-  };
-
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString("es-ES", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
-  if (isLoading) {
+  if (controller.isLoading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-96" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row gap-4 items-center">
+              <Skeleton className="h-10 flex-1" />
+              <Skeleton className="h-10 w-[180px]" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <Skeleton className="h-6 w-32 mb-2" />
+            <Skeleton className="h-4 w-64" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header & Create Dialog */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Leads</h1>
           <p className="text-muted-foreground">Gestiona y contacta a tus clientes potenciales.</p>
         </div>
 
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <Dialog open={controller.isAddDialogOpen} onOpenChange={controller.setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button className="shrink-0">
               <Plus className="h-4 w-4 mr-2" />
@@ -317,13 +174,14 @@ function LeadsContent() {
               <DialogDescription>Agrega un nuevo lead al sistema.</DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto px-1">
+              {/* Basic Fields */}
               <div className="grid gap-2">
                 <Label htmlFor="name">Nombre *</Label>
                 <Input
                   id="name"
-                  value={newLead.name}
-                  onChange={(e) => setNewLead({ ...newLead, name: e.target.value })}
+                  value={controller.newLead.name}
+                  onChange={(e) => controller.setNewLead({ ...controller.newLead, name: e.target.value })}
                   placeholder="Nombre completo"
                 />
               </div>
@@ -332,8 +190,8 @@ function LeadsContent() {
                 <Label htmlFor="phone">Teléfono *</Label>
                 <Input
                   id="phone"
-                  value={newLead.phone}
-                  onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })}
+                  value={controller.newLead.phone}
+                  onChange={(e) => controller.setNewLead({ ...controller.newLead, phone: e.target.value })}
                   placeholder="+507 6123-4567"
                 />
               </div>
@@ -343,15 +201,18 @@ function LeadsContent() {
                 <Input
                   id="email"
                   type="email"
-                  value={newLead.email}
-                  onChange={(e) => setNewLead({ ...newLead, email: e.target.value })}
+                  value={controller.newLead.email}
+                  onChange={(e) => controller.setNewLead({ ...controller.newLead, email: e.target.value })}
                   placeholder="correo@ejemplo.com"
                 />
               </div>
 
               <div className="grid gap-2">
                 <Label htmlFor="country">País *</Label>
-                <Select value={newLead.country} onValueChange={(value) => setNewLead({ ...newLead, country: value })}>
+                <Select
+                  value={controller.newLead.country}
+                  onValueChange={(value) => controller.setNewLead({ ...controller.newLead, country: value })}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona un país" />
                   </SelectTrigger>
@@ -365,12 +226,13 @@ function LeadsContent() {
                 </Select>
               </div>
 
+              {/* Extras */}
               <div className="grid gap-2">
                 <Label htmlFor="source">Fuente</Label>
                 <Input
                   id="source"
-                  value={newLead.source}
-                  onChange={(e) => setNewLead({ ...newLead, source: e.target.value })}
+                  value={controller.newLead.source || ""}
+                  onChange={(e) => controller.setNewLead({ ...controller.newLead, source: e.target.value })}
                   placeholder="Facebook, Referido, etc."
                 />
               </div>
@@ -379,19 +241,20 @@ function LeadsContent() {
                 <Label htmlFor="notes">Notas</Label>
                 <Textarea
                   id="notes"
-                  value={newLead.notes}
-                  onChange={(e) => setNewLead({ ...newLead, notes: e.target.value })}
+                  value={controller.newLead.notes || ""}
+                  onChange={(e) => controller.setNewLead({ ...controller.newLead, notes: e.target.value })}
                   placeholder="Notas adicionales..."
                 />
               </div>
 
-              {customFieldDefs?.map((field: any) => (
+              {/* Custom Fields */}
+              {controller.customFieldDefs?.map((field: any) => (
                 <div key={field.id} className="grid gap-2">
                   <Label htmlFor={`field-${field.id}`}>{field.name}</Label>
                   {field.type === 'select' && field.options ? (
                     <Select
-                      value={customFieldValues[field.id] || ""}
-                      onValueChange={(val) => setCustomFieldValues(prev => ({ ...prev, [field.id]: val }))}
+                      value={controller.customFieldValues[field.id] || ""}
+                      onValueChange={(val) => controller.setCustomFieldValues(prev => ({ ...prev, [field.id]: val }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar..." />
@@ -406,8 +269,8 @@ function LeadsContent() {
                     <Input
                       id={`field-${field.id}`}
                       type={field.type === 'number' ? 'number' : 'text'}
-                      value={customFieldValues[field.id] || ""}
-                      onChange={(e) => setCustomFieldValues(prev => ({ ...prev, [field.id]: e.target.value }))}
+                      value={controller.customFieldValues[field.id] || ""}
+                      onChange={(e) => controller.setCustomFieldValues(prev => ({ ...prev, [field.id]: e.target.value }))}
                       placeholder={field.name}
                     />
                   )}
@@ -415,20 +278,19 @@ function LeadsContent() {
               ))}
             </div>
 
-
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+              <Button variant="outline" onClick={() => controller.setIsAddDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleCreateLead} disabled={createLead.isPending}>
-                {createLead.isPending ? "Creando..." : "Crear Lead"}
+              <Button onClick={controller.handleCreateLead} disabled={controller.isCreating}>
+                {controller.isCreating ? "Creando..." : "Crear Lead"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Filters & Actions */}
+      {/* Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4 items-center">
@@ -436,20 +298,20 @@ function LeadsContent() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por nombre, teléfono o email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={controller.searchTerm}
+                onChange={(e) => controller.setSearchTerm(e.target.value)}
                 className="pl-9"
               />
             </div>
 
-            <Select value={stageFilter} onValueChange={(value) => setStageFilter(value)}>
+            <Select value={controller.stageFilter} onValueChange={controller.setStageFilter}>
               <SelectTrigger className="w-full sm:w-[180px]">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Filtrar por etapa" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas las etapas</SelectItem>
-                {stages.map((stage) => (
+                {controller.stages.map((stage) => (
                   <SelectItem key={stage.id} value={String(stage.id)}>
                     {stage.name}
                   </SelectItem>
@@ -458,9 +320,9 @@ function LeadsContent() {
             </Select>
           </div>
 
-          {selectedLeads.length > 0 && (
+          {controller.selectedLeads.length > 0 && (
             <div className="mt-4 p-2 bg-muted/50 rounded-md flex items-center gap-2 text-sm text-muted-foreground animate-in slide-in-from-top-2">
-              <span className="font-medium text-foreground">{selectedLeads.length} seleccionados</span>
+              <span className="font-medium text-foreground">{controller.selectedLeads.length} seleccionados</span>
               <div className="h-4 w-px bg-border mx-2" />
               <Button variant="ghost" size="sm" className="h-7 text-xs" disabled>
                 Eliminar (Próximamente)
@@ -470,17 +332,17 @@ function LeadsContent() {
         </CardContent>
       </Card>
 
-      {/* Advanced Leads Table */}
+      {/* Table */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle>Lista de Leads</CardTitle>
           <CardDescription>
-            {processedLeads.length} resultados encontrados.
+            {controller.leads.length} resultados encontrados.
           </CardDescription>
         </CardHeader>
 
         <CardContent>
-          {processedLeads.length === 0 ? (
+          {controller.leads.length === 0 ? (
             <div className="text-center py-12">
               <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
                 <Search className="h-6 w-6 text-muted-foreground" />
@@ -496,12 +358,15 @@ function LeadsContent() {
                     <TableRow className="bg-muted/50 hover:bg-muted/50">
                       <TableHead className="w-[30px]">
                         <Checkbox
-                          checked={selectedLeads.length === paginatedLeads.length && paginatedLeads.length > 0}
-                          onCheckedChange={toggleSelectAll}
+                          checked={
+                            controller.selectedLeads.length === controller.paginatedLeads.length &&
+                            controller.paginatedLeads.length > 0
+                          }
+                          onCheckedChange={() => controller.toggleSelectAll(controller.paginatedLeads.map(l => l.id))}
                         />
                       </TableHead>
                       <TableHead className="w-[250px]">
-                        <Button variant="ghost" className="h-8 -ml-3" onClick={() => handleSort('name')}>
+                        <Button variant="ghost" className="h-8 -ml-3" onClick={() => controller.handleSort('name')}>
                           Nombre
                           <ArrowUpDown className="ml-2 h-3.5 w-3.5" />
                         </Button>
@@ -510,13 +375,13 @@ function LeadsContent() {
                       <TableHead>País</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead>
-                        <Button variant="ghost" className="h-8 -ml-3" onClick={() => handleSort('commission')}>
+                        <Button variant="ghost" className="h-8 -ml-3" onClick={() => controller.handleSort('commission')}>
                           Comisión
                           <ArrowUpDown className="ml-2 h-3.5 w-3.5" />
                         </Button>
                       </TableHead>
                       <TableHead>
-                        <Button variant="ghost" className="h-8 -ml-3" onClick={() => handleSort('createdAt')}>
+                        <Button variant="ghost" className="h-8 -ml-3" onClick={() => controller.handleSort('createdAt')}>
                           Fecha
                           <ArrowUpDown className="ml-2 h-3.5 w-3.5" />
                         </Button>
@@ -526,12 +391,12 @@ function LeadsContent() {
                   </TableHeader>
 
                   <TableBody>
-                    {paginatedLeads.map((lead) => (
+                    {controller.paginatedLeads.map((lead) => (
                       <TableRow key={lead.id} className="group">
                         <TableCell>
                           <Checkbox
-                            checked={selectedLeads.includes(lead.id)}
-                            onCheckedChange={() => toggleSelectLead(lead.id)}
+                            checked={controller.selectedLeads.includes(lead.id)}
+                            onCheckedChange={() => controller.toggleSelectLead(lead.id)}
                           />
                         </TableCell>
                         <TableCell>
@@ -562,20 +427,7 @@ function LeadsContent() {
                         </TableCell>
 
                         <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={
-                              lead.pipelineStageId
-                                ? "bg-secondary text-secondary-foreground border-border"
-                                : statusConfig[lead.status as LeadStatus]?.className
-                            }
-                            style={lead.pipelineStageId ? {
-                              borderColor: stages.find((s: any) => s.id === lead.pipelineStageId)?.color || undefined,
-                              color: stages.find((s: any) => s.id === lead.pipelineStageId)?.color || undefined,
-                            } : undefined}
-                          >
-                            {stages.find((s: any) => s.id === lead.pipelineStageId)?.name || lead.status}
-                          </Badge>
+                          <LeadStatusBadge lead={lead} stages={controller.stages} />
                         </TableCell>
 
                         <TableCell>
@@ -607,11 +459,11 @@ function LeadsContent() {
                               </DropdownMenuTrigger>
 
                               <DropdownMenuContent align="end">
-                                {stages.map((stage: any) => (
+                                {controller.stages.map((stage: any) => (
                                   <DropdownMenuItem
                                     key={stage.id}
                                     onClick={() =>
-                                      updateStatus.mutate({
+                                      controller.updateStatus({
                                         id: lead.id,
                                         pipelineStageId: stage.id,
                                       })
@@ -624,7 +476,7 @@ function LeadsContent() {
 
                                 <DropdownMenuItem
                                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                                  onClick={() => setLeadToDelete(lead.id)}
+                                  onClick={() => controller.setLeadToDelete(lead.id)}
                                 >
                                   Eliminar Lead
                                 </DropdownMenuItem>
@@ -641,14 +493,14 @@ function LeadsContent() {
               {/* Pagination Controls */}
               <div className="flex items-center justify-between px-2">
                 <div className="text-sm text-muted-foreground">
-                  Página {currentPage} de {totalPages}
+                  Página {controller.currentPage} de {controller.totalPages}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
+                    onClick={() => controller.setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={controller.currentPage === 1}
                   >
                     <ChevronLeft className="h-4 w-4 mr-1" />
                     Anterior
@@ -656,8 +508,8 @@ function LeadsContent() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
+                    onClick={() => controller.setCurrentPage(p => Math.min(controller.totalPages, p + 1))}
+                    disabled={controller.currentPage === controller.totalPages}
                   >
                     Siguiente
                     <ChevronRight className="h-4 w-4 ml-1" />
@@ -670,16 +522,14 @@ function LeadsContent() {
       </Card>
 
       <ConfirmDialog
-        open={!!leadToDelete}
-        onOpenChange={(open) => !open && setLeadToDelete(null)}
-        onConfirm={() => {
-          if (leadToDelete) deleteLead.mutate({ id: leadToDelete });
-        }}
+        open={!!controller.leadToDelete}
+        onOpenChange={(open) => !open && controller.setLeadToDelete(null)}
+        onConfirm={controller.handleDeleteConfirm}
         title="¿Eliminar Lead?"
         description="Esta acción eliminará permanentemente al lead y todo su historial. No se puede deshacer."
         confirmText="Eliminar"
         variant="destructive"
-        isLoading={deleteLead.isPending}
+        isLoading={controller.isDeleting}
       />
     </div>
   );

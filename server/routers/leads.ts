@@ -6,10 +6,13 @@ import { permissionProcedure, protectedProcedure, router } from "../_core/trpc";
 import { dispatchIntegrationEvent } from "../_core/integrationDispatch";
 import { leadsToCSV, parseCSV, importLeadsFromCSV } from "../services/backup";
 
+// E.164 Regex (basic)
+const PHONE_REGEX = /^\+?[1-9]\d{7,14}$/;
+
 export const leadsRouter = router({
     search: protectedProcedure
         .input(z.object({
-            query: z.string().min(1),
+            query: z.string().trim().min(1),
             limit: z.number().default(10)
         }))
         .query(async ({ input }) => {
@@ -66,12 +69,12 @@ export const leadsRouter = router({
 
     create: permissionProcedure("leads.create")
         .input(z.object({
-            name: z.string().min(1),
-            phone: z.string().min(1),
-            email: z.string().email().optional(),
-            country: z.string().min(1),
-            source: z.string().optional(),
-            notes: z.string().optional(),
+            name: z.string().trim().min(1),
+            phone: z.string().trim().regex(PHONE_REGEX, "Invalid E.164 phone format"),
+            email: z.string().trim().email().optional().or(z.literal("")),
+            country: z.string().trim().min(1),
+            source: z.string().trim().optional(),
+            notes: z.string().trim().optional(),
             pipelineStageId: z.number().optional(),
             customFields: z.record(z.string(), z.any()).optional(),
             value: z.number().optional(), // Deal value
@@ -80,61 +83,73 @@ export const leadsRouter = router({
             const db = await getDb();
             if (!db) throw new Error("Database not available");
 
-            // IDEMPOTENCY: Check if lead with this phone already exists
-            const existingLead = await db.select().from(leads).where(eq(leads.phone, input.phone)).limit(1);
-            if (existingLead[0]) {
-                // Return existing lead instead of creating duplicate
-                return { id: existingLead[0].id, success: true, existed: true };
-            }
-
-            // Resolve pipeline stage (fallback to default pipeline's first stage)
-            let stageId: number | null = (input.pipelineStageId as any) ?? null;
-            if (!stageId) {
-                const p = await db.select().from(pipelines).where(eq(pipelines.isDefault, true)).limit(1);
-                const pipeline = p[0];
-                if (pipeline) {
-                    const s = await db.select().from(pipelineStages).where(eq(pipelineStages.pipelineId, pipeline.id)).orderBy(asc(pipelineStages.order)).limit(1);
-                    stageId = s[0]?.id ?? null;
+            return await db.transaction(async (tx) => {
+                // IDEMPOTENCY: Check if lead with this phone already exists (Use Transaction Lock logic if needed, but select is fine usually)
+                // Note: Repeatable Read isolation might prevent seeing concurrent inserts unless using stronger locking (FOR UPDATE), 
+                // but checking phone uniqueness usually relies on Unique Constraint in DB.
+                // Here we do a soft check.
+                const existingLead = await tx.select().from(leads).where(eq(leads.phone, input.phone)).limit(1);
+                if (existingLead[0]) {
+                    return { id: existingLead[0].id, success: true, existed: true };
                 }
-            }
 
-            // Determine next Kanban order in that stage
-            let nextOrder = 0;
-            if (stageId) {
-                const maxRows = await db.select({ max: sql<number>`max(${leads.kanbanOrder})` }).from(leads).where(eq(leads.pipelineStageId, stageId));
-                nextOrder = ((maxRows[0] as any)?.max ?? 0) + 1;
-            }
+                // Resolve pipeline stage
+                let stageId: number | null = (input.pipelineStageId as any) ?? null;
+                if (!stageId) {
+                    const p = await tx.select().from(pipelines).where(eq(pipelines.isDefault, true)).limit(1);
+                    const pipeline = p[0];
+                    if (pipeline) {
+                        const s = await tx.select().from(pipelineStages).where(eq(pipelineStages.pipelineId, pipeline.id)).orderBy(asc(pipelineStages.order)).limit(1);
+                        stageId = s[0]?.id ?? null;
+                    }
+                }
 
-            // Default WhatsApp number to associate integrations/webhooks & future conversations
-            const defaultNumber = await db.select({ id: whatsappNumbers.id }).from(whatsappNumbers).limit(1);
-            const defaultWhatsappNumberId = defaultNumber[0]?.id ?? null;
+                // Determine next Kanban order
+                // CRITICAL: We lock the reads to prevent race conditions on ordering if strict ordering mattered heavily.
+                // For now, standard select is "good enough" for Kanban unless high concurrency.
+                let nextOrder = 0;
+                if (stageId) {
+                    const maxRows = await tx.select({ max: sql<number>`max(${leads.kanbanOrder})` }).from(leads).where(eq(leads.pipelineStageId, stageId));
+                    nextOrder = ((maxRows[0] as any)?.max ?? 0) + 1;
+                }
 
-            // Calculate commission
-            const commission = input.country.toLowerCase() === 'panamá' || input.country.toLowerCase() === 'panama'
-                ? '10000.00'
-                : '5000.00';
+                // Assignment
+                const defaultNumber = await tx.select({ id: whatsappNumbers.id }).from(whatsappNumbers).limit(1);
+                const defaultWhatsappNumberId = defaultNumber[0]?.id ?? null;
 
-            const result = await db.insert(leads).values({
-                ...input,
-                value: input.value ? input.value.toString() : "0.00",
-                commission,
-                assignedToId: ctx.user?.id,
-                whatsappNumberId: defaultWhatsappNumberId as any,
-                pipelineStageId: stageId as any,
-                kanbanOrder: nextOrder as any,
-            });
+                // Commission logic
+                const countryLower = input.country.toLowerCase();
+                const commission = (countryLower === 'panamá' || countryLower === 'panama')
+                    ? '10000.00'
+                    : '5000.00';
 
-            const newLeadId = result[0].insertId;
-
-            if (defaultWhatsappNumberId) {
-                void dispatchIntegrationEvent({
-                    whatsappNumberId: defaultWhatsappNumberId,
-                    event: "lead_created",
-                    data: { id: newLeadId, ...input, assignedToId: ctx.user?.id },
+                const result = await tx.insert(leads).values({
+                    ...input,
+                    email: input.email || null, // handle empty string vs null
+                    value: input.value ? input.value.toString() : "0.00",
+                    commission,
+                    assignedToId: ctx.user?.id,
+                    whatsappNumberId: defaultWhatsappNumberId as any,
+                    pipelineStageId: stageId as any,
+                    kanbanOrder: nextOrder as any,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
                 });
-            }
 
-            return { id: newLeadId, success: true };
+                const newLeadId = result[0].insertId;
+
+                if (defaultWhatsappNumberId) {
+                    // We run side-effects OUTSIDE transaction usually, or fire-and-forget inside.
+                    // Dispatching event is safe here as it's likely async/detached or non-blocking logic.
+                    void dispatchIntegrationEvent({
+                        whatsappNumberId: defaultWhatsappNumberId,
+                        event: "lead_created",
+                        data: { id: newLeadId, ...input, assignedToId: ctx.user?.id },
+                    });
+                }
+
+                return { id: newLeadId, success: true };
+            });
         }),
 
     export: permissionProcedure("leads.export")
@@ -159,12 +174,12 @@ export const leadsRouter = router({
     update: permissionProcedure("leads.update")
         .input(z.object({
             id: z.number(),
-            name: z.string().min(1).optional(),
-            phone: z.string().min(1).optional(),
-            email: z.string().email().optional().nullable(),
-            country: z.string().min(1).optional(),
-            source: z.string().optional().nullable(),
-            notes: z.string().optional().nullable(),
+            name: z.string().trim().min(1).optional(),
+            phone: z.string().trim().regex(PHONE_REGEX).optional(),
+            email: z.string().trim().email().optional().nullable(),
+            country: z.string().trim().min(1).optional(),
+            source: z.string().trim().optional().nullable(),
+            notes: z.string().trim().optional().nullable(),
             pipelineStageId: z.number().optional(),
             customFields: z.record(z.string(), z.any()).optional(),
             value: z.number().optional(),
@@ -174,90 +189,94 @@ export const leadsRouter = router({
             const db = await getDb();
             if (!db) throw new Error("Database not available");
 
-            // CHECK ASSIGN PERMISSION
-            if (input.assignedToId !== undefined) {
-                const { computeEffectiveRole } = await import("../_core/rbac");
-                const userRole = (ctx.user as any).role || "agent";
-                const userCustomRole = (ctx.user as any).customRole;
-                const { getOrCreateAppSettings } = await import("../services/app-settings");
-                const settings = await getOrCreateAppSettings(db);
-                const matrix = settings.permissionsMatrix || {};
-                const role = computeEffectiveRole({ baseRole: userRole, customRole: userCustomRole, permissionsMatrix: matrix });
+            return await db.transaction(async (tx) => {
+                // CHECK ASSIGN PERMISSION
+                if (input.assignedToId !== undefined) {
+                    const { computeEffectiveRole } = await import("../_core/rbac");
+                    const userRole = (ctx.user as any).role || "agent";
+                    const userCustomRole = (ctx.user as any).customRole;
+                    const { getOrCreateAppSettings } = await import("../services/app-settings");
+                    const settings = await getOrCreateAppSettings(db);
+                    const matrix = settings.permissionsMatrix || {};
+                    const role = computeEffectiveRole({ baseRole: userRole, customRole: userCustomRole, permissionsMatrix: matrix });
 
-                // Check if user has explicit assignment permission
-                const hasAssign = role === "owner" || role === "admin" || (matrix[role] && (matrix[role].includes("*") || matrix[role].includes("leads.*") || matrix[role].includes("leads.assign")));
+                    const hasAssign = role === "owner" || role === "admin" || (matrix[role] && (matrix[role].includes("*") || matrix[role].includes("leads.*") || matrix[role].includes("leads.assign")));
 
-                if (!hasAssign) {
-                    throw new Error("No tienes permisos para reasignar leads (leads.assign)");
+                    if (!hasAssign) throw new Error("No tienes permisos para reasignar leads (leads.assign)");
                 }
-            }
 
-            const { id, ...data } = input;
+                const { id, ...data } = input;
 
-            // If stage is changed via update, move it to the end of that stage by default
-            if (data.pipelineStageId) {
-                const maxRows = await db.select({ max: sql<number>`max(${leads.kanbanOrder})` }).from(leads).where(eq(leads.pipelineStageId, data.pipelineStageId));
-                const nextOrder = ((maxRows[0] as any)?.max ?? 0) + 1;
-                (data as any).kanbanOrder = nextOrder;
-            }
+                // Handle atomic stage change and ordering
+                if (data.pipelineStageId) {
+                    const maxRows = await tx.select({ max: sql<number>`max(${leads.kanbanOrder})` }).from(leads).where(eq(leads.pipelineStageId, data.pipelineStageId));
+                    const nextOrder = ((maxRows[0] as any)?.max ?? 0) + 1;
+                    (data as any).kanbanOrder = nextOrder;
+                }
 
-            if (data.country) {
-                (data as Record<string, unknown>).commission = data.country.toLowerCase() === 'panamá' || data.country.toLowerCase() === 'panama'
-                    ? '10000.00'
-                    : '5000.00';
-            }
+                if (data.country) {
+                    const c = data.country.toLowerCase();
+                    (data as Record<string, unknown>).commission = (c === 'panamá' || c === 'panama') ? '10000.00' : '5000.00';
+                }
 
-            if (data.value !== undefined) {
-                (data as any).value = data.value.toString();
-            }
+                if (data.value !== undefined) {
+                    (data as any).value = data.value.toString();
+                }
 
-            await db.update(leads)
-                .set(data as any)
-                .where(eq(leads.id, id));
+                (data as any).updatedAt = new Date();
 
-            // Fire integration webhook (best-effort)
-            const updated = await db.select({ whatsappNumberId: leads.whatsappNumberId }).from(leads).where(eq(leads.id, id)).limit(1);
-            const waId = updated[0]?.whatsappNumberId as number | null | undefined;
-            if (waId) {
-                void dispatchIntegrationEvent({
-                    whatsappNumberId: waId,
-                    event: "lead_updated",
-                    data: { id, ...data, updatedById: ctx.user?.id },
-                });
-            }
+                await tx.update(leads)
+                    .set(data as any)
+                    .where(eq(leads.id, id));
 
-            return { success: true };
+                // Webhook logic
+                const updated = await tx.select({ whatsappNumberId: leads.whatsappNumberId }).from(leads).where(eq(leads.id, id)).limit(1);
+                const waId = updated[0]?.whatsappNumberId as number | null | undefined;
+                if (waId) {
+                    void dispatchIntegrationEvent({
+                        whatsappNumberId: waId,
+                        event: "lead_updated",
+                        data: { id, ...data, updatedById: ctx.user?.id },
+                    });
+                }
+
+                return { success: true };
+            });
         }),
 
     updateStatus: permissionProcedure("leads.update")
         .input(z.object({
             id: z.number(),
-            // Support both for backward compatibility or refactor
             pipelineStageId: z.number(),
         }))
         .mutation(async ({ input }) => {
             const db = await getDb();
             if (!db) throw new Error("Database not available");
 
-            // Move to end of stage by default
-            const maxRows = await db.select({ max: sql<number>`max(${leads.kanbanOrder})` }).from(leads).where(eq(leads.pipelineStageId, input.pipelineStageId));
-            const nextOrder = ((maxRows[0] as any)?.max ?? 0) + 1;
+            return await db.transaction(async (tx) => {
+                const maxRows = await tx.select({ max: sql<number>`max(${leads.kanbanOrder})` }).from(leads).where(eq(leads.pipelineStageId, input.pipelineStageId));
+                const nextOrder = ((maxRows[0] as any)?.max ?? 0) + 1;
 
-            await db.update(leads)
-                .set({ pipelineStageId: input.pipelineStageId, kanbanOrder: nextOrder } as any)
-                .where(eq(leads.id, input.id));
+                await tx.update(leads)
+                    .set({
+                        pipelineStageId: input.pipelineStageId,
+                        kanbanOrder: nextOrder,
+                        updatedAt: new Date()
+                    } as any)
+                    .where(eq(leads.id, input.id));
 
-            const updated = await db.select({ whatsappNumberId: leads.whatsappNumberId }).from(leads).where(eq(leads.id, input.id)).limit(1);
-            const whatsappNumberId = updated[0]?.whatsappNumberId;
-            if (whatsappNumberId) {
-                void dispatchIntegrationEvent({
-                    whatsappNumberId,
-                    event: "lead_updated",
-                    data: { id: input.id, pipelineStageId: input.pipelineStageId },
-                });
-            }
+                const updated = await tx.select({ whatsappNumberId: leads.whatsappNumberId }).from(leads).where(eq(leads.id, input.id)).limit(1);
+                const whatsappNumberId = updated[0]?.whatsappNumberId;
+                if (whatsappNumberId) {
+                    void dispatchIntegrationEvent({
+                        whatsappNumberId,
+                        event: "lead_updated",
+                        data: { id: input.id, pipelineStageId: input.pipelineStageId },
+                    });
+                }
 
-            return { success: true };
+                return { success: true };
+            });
         }),
 
     reorderKanban: permissionProcedure("kanban.update")
@@ -272,14 +291,19 @@ export const leadsRouter = router({
             const ids = (input.orderedLeadIds ?? []).filter(Boolean);
             if (ids.length === 0) return { success: true, updated: 0 } as const;
 
-            // Build CASE expression to assign 1..n order
-            const caseExpr = sql`CASE ${leads.id} ${sql.join(ids.map((id, idx) => sql`WHEN ${id} THEN ${idx + 1}`), sql` `)} END`;
+            return await db.transaction(async (tx) => {
+                const caseExpr = sql`CASE ${leads.id} ${sql.join(ids.map((id, idx) => sql`WHEN ${id} THEN ${idx + 1}`), sql` `)} END`;
 
-            await db.update(leads)
-                .set({ pipelineStageId: input.pipelineStageId, kanbanOrder: caseExpr } as any)
-                .where(inArray(leads.id, ids));
+                await tx.update(leads)
+                    .set({
+                        pipelineStageId: input.pipelineStageId,
+                        kanbanOrder: caseExpr,
+                        updatedAt: new Date()
+                    } as any)
+                    .where(inArray(leads.id, ids));
 
-            return { success: true, updated: ids.length } as const;
+                return { success: true, updated: ids.length } as const;
+            });
         }),
 
     delete: permissionProcedure("leads.delete")
@@ -297,24 +321,15 @@ export const leadsRouter = router({
             const db = await getDb();
             if (!db) return {};
 
-            // 1. Get Pipeline (or default)
-            let pipeline = null;
-            if (input.pipelineId) {
-                const p = await db.select().from(pipelines).where(eq(pipelines.id, input.pipelineId)).limit(1);
-                pipeline = p[0];
-            } else {
-                const p = await db.select().from(pipelines).where(eq(pipelines.isDefault, true)).limit(1);
-                if (p[0]) pipeline = p[0];
-            }
+            const pipeline = input.pipelineId
+                ? (await db.select().from(pipelines).where(eq(pipelines.id, input.pipelineId)).limit(1))[0]
+                : (await db.select().from(pipelines).where(eq(pipelines.isDefault, true)).limit(1))[0];
 
-            if (!pipeline) return {}; // valid case if no pipelines yet (though list creates one)
+            if (!pipeline) return {};
 
-            // 2. Get Stages
             const stages = await db.select().from(pipelineStages).where(eq(pipelineStages.pipelineId, pipeline.id)).orderBy(asc(pipelineStages.order));
-
-            // 3. OPTIMIZED: Filter leads by pipelineStageId instead of full scan
-            // Only fetch leads belonging to this pipeline's stages
             const stageIds = stages.map(s => s.id);
+
             const filteredLeads = stageIds.length > 0
                 ? await db.select().from(leads).where(inArray(leads.pipelineStageId, stageIds)).orderBy(asc(leads.kanbanOrder))
                 : [];
@@ -322,18 +337,15 @@ export const leadsRouter = router({
             const result: Record<string, typeof leads.$inferSelect[]> = {};
             stages.forEach(s => result[s.id] = []);
 
-
-            // 4. Group leads by stage
             for (const lead of filteredLeads) {
                 if (lead.pipelineStageId && result[lead.pipelineStageId]) {
                     result[lead.pipelineStageId].push(lead);
                 }
             }
 
-            // Sort each stage by kanbanOrder (fallback createdAt)
+            // Fallback sort by Date if order is 0 or same
             for (const s of stages) {
-                const arr = result[s.id] ?? [];
-                arr.sort((a: any, b: any) => {
+                result[s.id]?.sort((a, b) => {
                     const ao = Number(a.kanbanOrder ?? 0);
                     const bo = Number(b.kanbanOrder ?? 0);
                     if (ao !== bo) return ao - bo;

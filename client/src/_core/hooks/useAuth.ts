@@ -43,13 +43,15 @@ export function useAuth(options?: UseAuthOptions) {
 
   // Keep a cached copy of the current user info in localStorage for quick boot.
   // NOTE: side effects must not live in useMemo.
-  useEffect(() => {
-    try {
-      localStorage.setItem("manus-runtime-user-info", JSON.stringify(meQuery.data ?? null));
-    } catch {
-      // ignore
-    }
-  }, [meQuery.data]);
+  // REMOVED: Insecure localStorage persistence. 
+  // User info should be fetched fresh or rely on React Query in-memory cache.
+  // useEffect(() => {
+  //   try {
+  //     localStorage.setItem("manus-runtime-user-info", JSON.stringify(meQuery.data ?? null));
+  //   } catch {
+  //     // ignore
+  //   }
+  // }, [meQuery.data]);
 
   const state = useMemo(() => {
     return {
