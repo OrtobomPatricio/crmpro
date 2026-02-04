@@ -25,6 +25,20 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
   app:
     build:
       context: .
@@ -46,6 +60,7 @@ services:
       NODE_ENV: production
       PORT: 3000
       DATABASE_URL: mysql://${MYSQL_USER:-crm}:${MYSQL_PASSWORD:-crm_password}@mysql:3306/${MYSQL_DATABASE:-chin_crm}
+      REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-default_jwt_secret_change_me_in_prod}
       OWNER_OPEN_ID: ${OWNER_OPEN_ID:-}
       ALLOW_DEV_LOGIN: "0"
@@ -75,6 +90,7 @@ services:
 
 volumes:
   mysql_data:
+  redis_data:
   uploads_data:
 
 

@@ -1,56 +1,49 @@
-# Deploy rapido (Opcion Git)
+# 🚀 Guía de Despliegue Rápido en VPS (Docker)
 
-## Requisitos
-- Node 20+
-- pnpm
-- pm2
+Esta guía te permitirá desplegar Imagine CRM Pro en cualquier VPS (Ubuntu/Debian recomendado) usando Docker.
 
-## Primer deploy
+## Prerrequisitos
+-   VPS con Docker y Docker Compose instalados.
+-   Dominio apuntando a la IP del VPS.
+
+## Pasos de Instalación
+
+1.  **Clonar el Repositorio**
+    ```bash
+    git clone https://github.com/OrtobomPatricio/crmpro.git
+    cd crmpro
+    ```
+
+2.  **Configurar Variables de Entorno**
+    Copia el archivo de ejemplo y edítalo con tus secretos reales.
+    ```bash
+    cp deploy/.env.example .env
+    nano .env
+    ```
+    > **IMPORTANTE**: Cambia `JWT_SECRET`, `MYSQL_PASSWORD`, y `BOOTSTRAP_ADMIN_PASSWORD`.
+
+3.  **Desplegar (Build & Run)**
+    Ejecuta este comando para construir y levantar los contenedores en modo producción (detached).
+    ```bash
+    docker compose -f docker-compose.prod.yml up -d --build
+    ```
+
+4.  **Verificar Estado**
+    ```bash
+    docker compose -f docker-compose.prod.yml ps
+    docker compose -f docker-compose.prod.yml logs -f app
+    ```
+
+## Actualización (Zero Downtime aproximado)
+Para aplicar nuevos cambios desde GitHub:
+
 ```bash
-sudo mkdir -p /opt/chin-crm
-sudo chown -R $USER:$USER /opt/chin-crm
-cd /opt
-git clone TU_REPO chin-crm
-cd chin-crm
-cp .env.example .env  # ajusta valores
-pnpm install
-pnpm db:migrate
-pnpm build
-pm2 start deploy/pm2.ecosystem.config.cjs
-pm2 save
+git pull
+docker compose -f docker-compose.prod.yml up -d --build --no-deps app
+docker image prune -f
 ```
 
-## Actualizar version
-```bash
-bash deploy/update.sh
-```
-
----
-
-## Deploy con Docker (recomendado en VPS)
-
-### Requisitos
-- Docker + Docker Compose
-
-### Configuracion
-```bash
-cd /opt/chin-crm
-cp .env.example .env
-# Edita .env (JWT_SECRET, OWNER_OPEN_ID, DATA_ENCRYPTION_KEY, etc.)
-```
-
-### Levantar servicios (MySQL dentro del VPS)
-```bash
-docker compose up -d --build
-```
-
-### Logs
-```bash
-docker compose logs -f app
-```
-
-### Actualizar
-```bash
-docker compose pull || true
-docker compose up -d --build
-```
+## Troubleshooting
+-   **Logs**: `docker compose -f docker-compose.prod.yml logs -f --tail 100`
+-   **Reiniciar todo**: `docker compose -f docker-compose.prod.yml restart`
+-   **Resetear Base de Datos (PELIGRO)**: `docker compose -f docker-compose.prod.yml down -v`
