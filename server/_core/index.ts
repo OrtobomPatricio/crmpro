@@ -104,6 +104,8 @@ async function startServer() {
       const allowedOrigins = [
         process.env.CLIENT_URL,
         process.env.VITE_API_URL,
+        process.env.VITE_OAUTH_PORTAL_URL,
+        "https://168.231.98.244.nip.io" // Hardcoded fallback for immediate fix
       ].filter(Boolean).map(url => normalize(url!));
 
       if (allowedOrigins.includes(normalize(origin))) {
