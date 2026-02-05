@@ -11,19 +11,30 @@ export const MessageHandler = {
         console.log("Processing incoming message for userId:", userId);
 
         const jid = message.key.remoteJid;
-        if (!jid || jid.includes('@g.us') || jid.includes('status@broadcast')) return; // Ignore groups and status
+        console.log("MessageHandler: Remote JID:", jid);
+
+        if (!jid || jid.includes('@g.us') || jid.includes('status@broadcast')) {
+            console.log("MessageHandler: Ignoring group/status/broadcast");
+            return;
+        }
 
         const fromMe = message.key.fromMe;
-        if (fromMe) return; // Ignore own messages for now (or handle as outbound sync)
+        if (fromMe) {
+            console.log("MessageHandler: Ignoring self-message in handler check");
+            return;
+        }
 
         const text = message.message?.conversation ||
             message.message?.extendedTextMessage?.text ||
             message.message?.imageMessage?.caption ||
             "Media Message";
 
+        console.log("MessageHandler: Extracted Text:", text);
+
         // simple phone number extraction (remove @s.whatsapp.net)
         const phoneNumber = '+' + jid.split('@')[0];
         const contactName = message.pushName || "Unknown";
+        console.log("MessageHandler: Extracted Contact:", { phoneNumber, contactName });
 
         try {
             // 1. Find or Create Lead

@@ -75,14 +75,27 @@ export const BaileysService = {
         });
 
         sock.ev.on('messages.upsert', async (m) => {
-            if (m.type === 'notify') {
+            console.log("Baileys: messages.upsert received", JSON.stringify(m, null, 2));
+
+            // Sometimes type is 'append' or others, but 'notify' is standard for new messages.
+            // Let's process if there are messages, regardless of strict type for now to debug.
+            if (m.messages && m.messages.length > 0) {
                 for (const msg of m.messages) {
+                    console.log("Baileys: Processing message key", msg.key);
+
                     // Check if it's a message from another user (not us)
                     if (!msg.key.fromMe) {
+                        console.log("Baileys: Handing over to MessageHandler");
                         // Import dynamically or use imported service
                         // We should import MessageHandler at top level if possible, but for now specific call:
-                        const { MessageHandler } = await import("./message-handler");
-                        await MessageHandler.handleIncomingMessage(userId, msg);
+                        try {
+                            const { MessageHandler } = await import("./message-handler");
+                            await MessageHandler.handleIncomingMessage(userId, msg);
+                        } catch (e) {
+                            console.error("Baileys: Error invoking MessageHandler", e);
+                        }
+                    } else {
+                        console.log("Baileys: Ignoring own message");
                     }
                 }
             }
