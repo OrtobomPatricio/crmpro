@@ -13,6 +13,7 @@ import {
   DragOverEvent,
   DragEndEvent,
   DragCancelEvent,
+  useDroppable,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -67,8 +68,8 @@ function LeadCard({ lead }: { lead: Lead }) {
 // -- Componente Tarjeta (Sortable Item) --
 function SortableItem({ lead }: { lead: Lead }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: lead.id,
-    data: { ...lead },
+    id: `lead-${lead.id}`,
+    data: { ...lead, type: "Item" },
   });
 
   const style: React.CSSProperties = {
@@ -86,8 +87,13 @@ function SortableItem({ lead }: { lead: Lead }) {
 
 // -- Componente Columna --
 function KanbanColumn({ id, title, leads }: { id: string; title: string; leads: Lead[] }) {
+  const { setNodeRef } = useDroppable({
+    id: `stage-${id}`,
+    data: { type: "Container", id },
+  });
+
   return (
-    <div className="flex flex-col h-full bg-muted/30 rounded-lg p-2 min-w-[280px] w-[280px]">
+    <div ref={setNodeRef} className="flex flex-col h-full bg-muted/30 rounded-lg p-2 min-w-[280px] w-[280px]">
       <div className="flex items-center justify-between mb-3 px-2">
         <h3 className="font-bold text-sm text-foreground/80">{title}</h3>
         <Badge variant="secondary" className="text-xs">
@@ -95,7 +101,7 @@ function KanbanColumn({ id, title, leads }: { id: string; title: string; leads: 
         </Badge>
       </div>
       <ScrollArea className="flex-1">
-        <SortableContext id={id} items={leads.map((l) => l.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext id={`stage-${id}`} items={leads.map((l) => `lead-${l.id}`)} strategy={verticalListSortingStrategy}>
           <div className="px-1 min-h-[50px]">
             {leads.map((lead) => (
               <SortableItem key={lead.id} lead={lead} />
@@ -173,91 +179,81 @@ export default function KanbanBoard() {
   };
 
   const findContainer = (id: string | number): number | null => {
-    const num = Number(id);
-
-    // container id
-    if (Number.isFinite(num) && board[num]) return num;
+    const idStr = String(id);
+    if (idStr.startsWith("stage-")) return Number(idStr.replace("stage-", ""));
 
     // item id
+    const leadId = Number(idStr.replace("lead-", ""));
     for (const stageIdStr of Object.keys(board)) {
       const stageId = Number(stageIdStr);
-      if ((board[stageId] ?? []).some((l) => l.id === num)) return stageId;
+      if ((board[stageId] ?? []).some((l) => l.id === leadId)) return stageId;
     }
 
     return null;
-  };
-
-  const persistStageOrder = async (stageId: number) => {
-    const orderedLeadIds = (board[stageId] ?? []).map((l) => l.id);
-    await reorderKanban.mutateAsync({ pipelineStageId: stageId, orderedLeadIds });
-  };
-
-  // -- Won Dialog State --
-  const [wonDialog, setWonDialog] = useState<{ open: boolean; leadId: number | null; stageId: number | null }>(
-    {
-      open: false,
-      leadId: null,
-      stageId: null,
-    }
-  );
-  const [wonValue, setWonValue] = useState("");
-
-  const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    const lead = active.data.current as Lead;
-    setActiveDragItem(lead);
-    dragSnapshotRef.current = deepCloneBoard(board);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
     if (!over) return;
 
-    const activeId = Number(active.id);
-    const overId = over.id;
+    const activeId = String(active.id);
+    const overId = String(over.id);
 
+    // Find containers
     const activeContainer = findContainer(activeId);
     const overContainer = findContainer(overId);
 
     if (!activeContainer || !overContainer) return;
 
     if (activeContainer === overContainer) {
-      // reorder within column
-      const activeIndex = (board[activeContainer] ?? []).findIndex((l) => l.id === activeId);
-      const overIndex = (board[overContainer] ?? []).findIndex((l) => l.id === Number(overId));
-      if (activeIndex === -1 || overIndex === -1 || activeIndex === overIndex) return;
+      // Reorder within column
+      // We need indices based on lead IDs
+      const leadId = Number(activeId.replace("lead-", ""));
+      const overLeadId = overId.startsWith("lead-") ? Number(overId.replace("lead-", "")) : null;
 
-      setBoard((prev) => ({
-        ...prev,
-        [activeContainer]: arrayMove(prev[activeContainer] ?? [], activeIndex, overIndex),
-      }));
-      return;
-    }
+      // If hovering over the container itself (empty space), no reorder needed usually, 
+      // but if we want to move to end? For now, standard reorder
+      if (overLeadId === null) return;
 
-    // move across columns
-    setBoard((prev) => {
-      const sourceItems = [...(prev[activeContainer] ?? [])];
-      const destItems = [...(prev[overContainer] ?? [])];
+      const activeIndex = (board[activeContainer] ?? []).findIndex((l) => l.id === leadId);
+      const overIndex = (board[overContainer] ?? []).findIndex((l) => l.id === overLeadId);
 
-      const sourceIndex = sourceItems.findIndex((l) => l.id === activeId);
-      if (sourceIndex === -1) return prev;
-
-      const [moved] = sourceItems.splice(sourceIndex, 1);
-      moved.pipelineStageId = overContainer;
-
-      const destIndex = destItems.findIndex((l) => l.id === Number(overId));
-      if (destIndex >= 0) {
-        destItems.splice(destIndex, 0, moved);
-      } else {
-        destItems.push(moved);
+      if (activeIndex !== overIndex) {
+        setBoard((prev) => ({
+          ...prev,
+          [activeContainer]: arrayMove(prev[activeContainer] ?? [], activeIndex, overIndex),
+        }));
       }
+    } else {
+      // Move across columns
+      setBoard((prev) => {
+        const sourceItems = [...(prev[activeContainer] ?? [])];
+        const destItems = [...(prev[overContainer] ?? [])];
 
-      return {
-        ...prev,
-        [activeContainer]: sourceItems,
-        [overContainer]: destItems,
-      };
-    });
+        const leadId = Number(activeId.replace("lead-", ""));
+        const sourceIndex = sourceItems.findIndex((l) => l.id === leadId);
+        if (sourceIndex === -1) return prev;
+
+        const [moved] = sourceItems.splice(sourceIndex, 1);
+        moved.pipelineStageId = overContainer;
+
+        const overLeadId = overId.startsWith("lead-") ? Number(overId.replace("lead-", "")) : null;
+        let destIndex = destItems.length; // Default to end
+
+        if (overLeadId !== null) {
+          const index = destItems.findIndex((l) => l.id === overLeadId);
+          if (index >= 0) destIndex = index;
+        }
+
+        destItems.splice(destIndex, 0, moved);
+
+        return {
+          ...prev,
+          [activeContainer]: sourceItems,
+          [overContainer]: destItems,
+        };
+      });
+    }
   };
 
   const handleDragCancel = (_event: DragCancelEvent) => {
@@ -278,8 +274,11 @@ export default function KanbanBoard() {
       return;
     }
 
-    const activeId = Number(active.id);
-    const overId = over.id;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    // Extract real ID for logic
+    const activeLeadId = Number(activeId.replace("lead-", ""));
 
     const fromStage = findContainer(activeId);
     const toStage = findContainer(overId);
@@ -297,7 +296,7 @@ export default function KanbanBoard() {
 
       if (isWon && requireValue) {
         if (dragSnapshotRef.current) setBoard(dragSnapshotRef.current);
-        setWonDialog({ open: true, leadId: activeId, stageId: toStage });
+        setWonDialog({ open: true, leadId: activeLeadId, stageId: toStage });
         dragSnapshotRef.current = null;
         return;
       }
@@ -306,7 +305,7 @@ export default function KanbanBoard() {
     try {
       // Persist stage change first
       if (fromStage !== toStage) {
-        await updateStatus.mutateAsync({ id: activeId, pipelineStageId: toStage });
+        await updateStatus.mutateAsync({ id: activeLeadId, pipelineStageId: toStage });
       }
 
       // Persist ordering (both columns affected if moved across)
