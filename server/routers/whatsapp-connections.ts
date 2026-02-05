@@ -82,40 +82,58 @@ export const whatsappConnectionsRouter = router({
 
     generateQr: permissionProcedure("monitoring.manage")
         .input(z.object({ whatsappNumberId: z.number() }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ input, ctx }) => {
             const db = await getDb();
             if (!db) throw new Error("Database not available");
 
-            // Generate a placeholder QR code (in real implementation, this would connect to WhatsApp Web)
-            const qrCode = `WHATSAPP_QR_${input.whatsappNumberId}_${Date.now()}`;
-            const qrExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-
             // Check if connection exists
-            const existing = await db.select()
+            let existing = await db.select()
                 .from(whatsappConnections)
                 .where(eq(whatsappConnections.whatsappNumberId, input.whatsappNumberId))
                 .limit(1);
 
-            if (existing[0]) {
-                await db.update(whatsappConnections)
-                    .set({
-                        connectionType: 'qr',
-                        qrCode,
-                        qrExpiresAt,
-                        isConnected: false,
-                    })
-                    .where(eq(whatsappConnections.whatsappNumberId, input.whatsappNumberId));
-            } else {
+            if (!existing[0]) {
                 await db.insert(whatsappConnections).values({
                     whatsappNumberId: input.whatsappNumberId,
                     connectionType: 'qr',
-                    qrCode,
-                    qrExpiresAt,
                     isConnected: false,
                 });
             }
 
-            return { qrCode, expiresAt: qrExpiresAt };
+            // Import dynamically to avoid top-level side effects if service fails
+            const { BaileysService } = await import("../services/baileys");
+
+            // Initialize separate session
+            let qrCode: string | undefined;
+
+            await BaileysService.initializeSession(
+                input.whatsappNumberId,
+                async (qr) => {
+                    qrCode = qr;
+                    // Update DB with latest QR
+                    await db.update(whatsappConnections)
+                        .set({ qrCode: qr, qrExpiresAt: new Date(Date.now() + 60000) }) // 1 min validity for UI
+                        .where(eq(whatsappConnections.whatsappNumberId, input.whatsappNumberId));
+                },
+                async (status) => {
+                    const isConnected = status === 'connected';
+                    await db.update(whatsappConnections)
+                        .set({ isConnected, status: isConnected ? 'connected' : 'disconnected' })
+                        .where(eq(whatsappConnections.whatsappNumberId, input.whatsappNumberId));
+
+                    if (isConnected) {
+                        await db.update(whatsappNumbers)
+                            .set({ isConnected: true, status: 'active' })
+                            .where(eq(whatsappNumbers.id, input.whatsappNumberId));
+                    }
+                }
+            );
+
+            // Wait a bit for QR to be generated
+            await new Promise(r => setTimeout(r, 2000));
+            qrCode = BaileysService.getQr(input.whatsappNumberId);
+
+            return { qrCode, expiresAt: new Date(Date.now() + 60000) };
         }),
 
     disconnect: permissionProcedure("monitoring.manage")

@@ -4,25 +4,18 @@
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}=== Actualizando Imagine CRM (Servidor VPS) ===${NC}"
+echo -e "${GREEN}=== Actualizando Imagine CRM (Servidor VPS - Docker) ===${NC}"
 
 echo "1. Descargando cambios..."
 git pull
 
-echo "2. Instalando dependencias..."
-pnpm install
+echo "2. Re-construyendo imagen y reiniciando contenedores..."
+# --build fuerza la reconstrucción si hay cambios en el código
+# -d corre en segundo plano
+docker compose up -d --build
 
-echo "3. Ejecutando migraciones de Base de Datos..."
-pnpm db:push
+echo "3. Limpiando imágenes antiguas (opcional)..."
+docker image prune -f
 
-echo "4. Construyendo aplicación..."
-# Aseguramos que las variables de entorno necesarias para el build estén presentes
-# (Ajusta VITE_DEV_BYPASS_AUTH=0 si en VPS usas login real)
-# export VITE_DEV_BYPASS_AUTH=1 (Comentado por seguridad en producción)
-pnpm run build
-
-echo "5. Reiniciando servicio..."
-# Asumiendo que usas PM2 para gestionar el proceso node
-pm2 reload all || pm2 restart all
-
-echo -e "${GREEN}¡Listo! El CRM está actualizado.${NC}"
+echo -e "${GREEN}¡Listo! El CRM está actualizado y corriendo.${NC}"
+echo "Check de logs: docker compose logs -f app"

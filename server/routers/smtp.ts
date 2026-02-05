@@ -22,7 +22,7 @@ export const smtpRouter = router({
             secure: z.boolean(),
             user: z.string().min(1).max(255),
             password: z.string().min(1),
-            fromEmail: z.string().email().optional(),
+            fromEmail: z.string().includes("@").optional(),
             fromName: z.string().max(100).optional(),
         }))
         .mutation(async ({ input }) => {
@@ -134,7 +134,7 @@ export const smtpRouter = router({
         }),
 
     verifySmtpTest: permissionProcedure("settings.manage")
-        .input(z.object({ email: z.string().email() }))
+        .input(z.object({ email: z.string().includes("@") }))
         .mutation(async ({ input }) => {
             const sent = await sendEmail({
                 to: input.email,
