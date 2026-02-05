@@ -82,15 +82,7 @@ export function WhatsAppConnectionsList() {
         return <div className="text-sm text-muted-foreground">Cargando conexiones...</div>;
     }
 
-    if (!connections || connections.length === 0) {
-        return (
-            <div className="text-center py-8 border rounded-lg bg-muted/30">
-                <Phone className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
-                <p className="text-sm text-muted-foreground">No hay conexiones de WhatsApp configuradas</p>
-                <p className="text-xs text-muted-foreground mt-1">Haz clic en "Agregar Cuenta" para comenzar</p>
-            </div>
-        );
-    }
+
 
     return (
         <div className="space-y-6">
