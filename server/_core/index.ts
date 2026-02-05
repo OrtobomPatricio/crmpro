@@ -82,7 +82,7 @@ async function startServer() {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://maps.googleapis.com"],
         upgradeInsecureRequests: null,
-        imgSrc: ["'self'", "data:", "blob:", "https://*.googleusercontent.com", "https://maps.gstatic.com"],
+        imgSrc: ["'self'", "data:", "blob:", "https://*.googleusercontent.com", "https://maps.gstatic.com", "https://*.whatsapp.net", "https://*.fbcdn.net", "https://*.cdninstagram.com", "https://*.wadata.net"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
         connectSrc: ["'self'", "https://maps.googleapis.com"],
