@@ -129,9 +129,15 @@ export const whatsappConnectionsRouter = router({
                 }
             );
 
-            // Wait a bit for QR to be generated
-            await new Promise(r => setTimeout(r, 2000));
-            qrCode = BaileysService.getQr(input.whatsappNumberId);
+            // Wait for QR to be generated (poll for up to 15 seconds)
+            let attempts = 0;
+            while (attempts < 30) {
+                qrCode = BaileysService.getQr(input.whatsappNumberId);
+                if (qrCode) break;
+
+                await new Promise(r => setTimeout(r, 500));
+                attempts++;
+            }
 
             return { qrCode, expiresAt: new Date(Date.now() + 60000) };
         }),
