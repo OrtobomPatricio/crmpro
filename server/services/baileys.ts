@@ -123,6 +123,30 @@ export const BaileysService = {
         return connections.get(userId)?.status || 'disconnected';
     },
 
+    async sendMessage(userId: number, to: string, content: any) {
+        const conn = connections.get(userId);
+        if (!conn?.socket) throw new Error("WhatsApp connection not active");
+
+        const jid = to.includes('@') ? to : `${to.replace('+', '')}@s.whatsapp.net`;
+        return await conn.socket.sendMessage(jid, content);
+    },
+
+    async sendReadReceipt(userId: number, to: string, messageId: string, participant?: string) {
+        const conn = connections.get(userId);
+        if (!conn?.socket) return; // Silent fail if not connected
+
+        const jid = to.includes('@') ? to : `${to.replace('+', '')}@s.whatsapp.net`;
+
+        // Correct way to send read receipt in Baileys
+        await conn.socket.readMessages([
+            {
+                remoteJid: jid,
+                id: messageId,
+                participant: participant // needed for groups, optional for DMs
+            }
+        ]);
+    },
+
     getQr(userId: number) {
         return connections.get(userId)?.qr;
     }

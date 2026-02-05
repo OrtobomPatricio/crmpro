@@ -197,6 +197,40 @@ export const chatRouter = router({
                 .set({ unreadCount: 0 })
                 .where(eq(conversations.id, input.conversationId));
 
+            // Attempt to send Read Receipt to WhatsApp (Baileys)
+            try {
+                // Determine channel
+                const conv = await db.select().from(conversations).where(eq(conversations.id, input.conversationId)).limit(1);
+                if (conv[0] && conv[0].channel === 'whatsapp' && conv[0].whatsappNumberId) {
+                    const { whatsappConnections } = await import("../../drizzle/schema"); // Lazy load
+                    const conn = await db.select().from(whatsappConnections).where(eq(whatsappConnections.whatsappNumberId, conv[0].whatsappNumberId)).limit(1);
+
+                    if (conn[0] && conn[0].connectionType === 'qr' && conn[0].isConnected) {
+                        // Fetch unread delivered messages to mark as read remotely
+                        // Actually, Baileys "readMessages" typically marks the conversation or specific IDs.
+                        // For simplicity, we can fetch the last few inbound messages.
+                        const unreadMsgs = await db.select({ whatsappMessageId: chatMessages.whatsappMessageId })
+                            .from(chatMessages)
+                            .where(and(
+                                eq(chatMessages.conversationId, input.conversationId),
+                                eq(chatMessages.direction, 'inbound'),
+                                sql`${chatMessages.whatsappMessageId} IS NOT NULL`
+                            ))
+                            .orderBy(desc(chatMessages.createdAt))
+                            .limit(5); // Mark last 5 to be sure.
+
+                        const { BaileysService } = await import("../services/baileys");
+                        for (const msg of unreadMsgs) {
+                            if (msg.whatsappMessageId) {
+                                await BaileysService.sendReadReceipt(conv[0].whatsappNumberId, conv[0].contactPhone, msg.whatsappMessageId);
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to send read receipt", e);
+            }
+
             return { success: true };
         }),
 
@@ -334,11 +368,60 @@ export const chatRouter = router({
                     .limit(1);
                 const conn = connRows[0];
 
-                // If not connected via API, keep it pending
-                if (!conn || conn.connectionType !== 'api' || !conn.isConnected) {
+                if (!conn || !conn.isConnected) {
                     return { id, success: true, queued: true } as const;
                 }
 
+                // === Baileys (QR) Logic ===
+                if (conn.connectionType === 'qr') {
+                    try {
+                        const { BaileysService } = await import("../services/baileys");
+
+                        let payload: any = {};
+                        if (input.messageType === 'text') {
+                            payload = { text: input.content || "" };
+                        } else if (['image', 'video', 'audio'].includes(input.messageType)) {
+                            payload = {
+                                [input.messageType]: { url: input.mediaUrl },
+                                caption: input.content
+                            };
+                        } else if (input.messageType === 'document') {
+                            payload = {
+                                document: { url: input.mediaUrl },
+                                mimetype: input.mediaMimeType || 'application/octet-stream',
+                                fileName: input.mediaName || 'document'
+                            };
+                        }
+
+                        const result = await BaileysService.sendMessage(whatsappNumberId, conv.contactPhone, payload);
+                        const waMessageId = result?.key?.id;
+
+                        await db.update(chatMessages)
+                            .set({
+                                status: 'sent',
+                                whatsappMessageId: waMessageId,
+                                sentAt: now
+                            })
+                            .where(eq(chatMessages.id, id));
+
+                        return { id, success: true, sent: true, whatsappMessageId: waMessageId } as const;
+
+                    } catch (err: any) {
+                        const message = err?.message || "Failed to send via Baileys";
+                        await db.update(chatMessages)
+                            .set({ status: 'failed', errorMessage: message, failedAt: now })
+                            .where(eq(chatMessages.id, id));
+                        throw new Error(message);
+                    }
+                }
+
+                // === Cloud API Logic (Existing) ===
+                if (conn.connectionType !== 'api') {
+                    // Should have been handled above if qr, so this effectively catches unknown types
+                    return { id, success: true, queued: true } as const;
+                }
+
+                // Existing Cloud API Checks...
                 const token = decryptSecret(conn.accessToken ?? '') ?? (conn.accessToken ?? null);
                 if (!token) {
                     await db.update(chatMessages)
