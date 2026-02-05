@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { User, Phone, Mail, MapPin, Tag, Briefcase, Save, Loader2, DollarSign } from "lucide-react";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 
 interface ChatLeadDetailsProps {
     leadId: number;
@@ -26,12 +26,12 @@ export function ChatLeadDetails({ leadId, className }: ChatLeadDetailsProps) {
     // Mutations
     const updateLead = trpc.leads.update.useMutation({
         onSuccess: () => {
-            toast({ title: "Lead actualizado", description: "Los cambios se han guardado correctamente." });
+            toast.success("Lead actualizado", { description: "Los cambios se han guardado correctamente." });
             utils.leads.getById.invalidate({ id: leadId });
             utils.chat.listConversations.invalidate(); // Update list if name changed
         },
         onError: (err) => {
-            toast({ title: "Error", description: err.message, variant: "destructive" });
+            toast.error("Error", { description: err.message });
         }
     });
 
@@ -112,10 +112,10 @@ export function ChatLeadDetails({ leadId, className }: ChatLeadDetailsProps) {
                 <Button
                     size="sm"
                     onClick={handleSave}
-                    disabled={updateLead.isLoading}
+                    disabled={updateLead.isPending}
                     className="h-8 w-8 p-0 sm:w-auto sm:px-3 sm:gap-2"
                 >
-                    {updateLead.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    {updateLead.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     <span className="hidden sm:inline">Guardar</span>
                 </Button>
             </div>
@@ -141,7 +141,7 @@ export function ChatLeadDetails({ leadId, className }: ChatLeadDetailsProps) {
                                     {pipeline.stages.map(stage => (
                                         <SelectItem key={stage.id} value={stage.id.toString()}>
                                             <div className="flex items-center gap-2">
-                                                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: stage.color }} />
+                                                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: stage.color || undefined }} />
                                                 {stage.name}
                                             </div>
                                         </SelectItem>

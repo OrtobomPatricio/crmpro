@@ -1,7 +1,7 @@
 
 import { getDb } from "../db";
-import { leads, conversations, chatMessages, whatsappNumbers } from "../../drizzle/schema";
-import { eq, and } from "drizzle-orm";
+import { leads, conversations, chatMessages, whatsappNumbers, pipelines, pipelineStages } from "../../drizzle/schema";
+import { eq, and, asc, sql } from "drizzle-orm";
 
 export const MessageHandler = {
     async handleIncomingMessage(userId: number, message: any) {
@@ -46,12 +46,34 @@ export const MessageHandler = {
                 // Optional: Update lastContactedAt
                 await db.update(leads).set({ lastContactedAt: new Date() }).where(eq(leads.id, leadId));
             } else {
+                // Determine Default Pipeline Stage
+                let stageId: number | null = null;
+                let nextOrder = 0;
+
+                const defaultPipeline = await db.select().from(pipelines).where(eq(pipelines.isDefault, true)).limit(1);
+                if (defaultPipeline[0]) {
+                    const firstStage = await db.select().from(pipelineStages)
+                        .where(eq(pipelineStages.pipelineId, defaultPipeline[0].id))
+                        .orderBy(asc(pipelineStages.order))
+                        .limit(1);
+
+                    if (firstStage[0]) {
+                        stageId = firstStage[0].id;
+                        // Calculate next Kanban Order
+                        const maxRows = await db.select({ max: sql<number>`max(${leads.kanbanOrder})` })
+                            .from(leads)
+                            .where(eq(leads.pipelineStageId, stageId));
+                        nextOrder = ((maxRows[0] as any)?.max ?? 0) + 1;
+                    }
+                }
+
                 const [newLead] = await db.insert(leads).values({
                     name: contactName,
                     phone: phoneNumber,
                     country: "Unknown",
-                    stage: "new", // using existing 'status' enum or pipeline default? schema says status is deprecated but present.
-                    // pipelineStageId: ... default?
+
+                    pipelineStageId: stageId,
+                    kanbanOrder: nextOrder,
                     source: "whatsapp_inbound",
                     createdAt: new Date(),
                     updatedAt: new Date(),
