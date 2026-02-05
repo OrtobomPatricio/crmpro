@@ -262,6 +262,7 @@ export const templates = mysqlTable("templates", {
   name: varchar("name", { length: 150 }).notNull(),
   content: text("content").notNull(),
   type: mysqlEnum("type", ["whatsapp", "email"]).default("whatsapp").notNull(),
+  attachments: json("attachments").$type<{ url: string; name: string; type: string }[]>(), // Array of attachments
   variables: json("variables").$type<string[]>(), // ["name", "company"]
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -637,21 +638,21 @@ export type InsertInternalMessage = typeof internalMessages.$inferInsert;
  * SMTP Connections - Multiple email accounts
  */
 export const smtpConnections = mysqlTable("smtp_connections", {
-    id: int("id").autoincrement().primaryKey(),
-    name: varchar("name", { length: 100 }).notNull(), // e.g., "Gmail Ventas"
-    host: varchar("host", { length: 255 }).notNull(), // e.g., smtp.gmail.com
-    port: int("port").notNull(), // e.g., 587
-    secure: boolean("secure").default(false).notNull(), // true for 465, false for 587
-    user: varchar("user", { length: 255 }).notNull(), // email address
-    password: text("password"), // encrypted
-    fromEmail: varchar("fromEmail", { length: 255 }), // "From" address
-    fromName: varchar("fromName", { length: 100 }), // "From" name
-    isActive: boolean("isActive").default(true).notNull(),
-    isDefault: boolean("isDefault").default(false).notNull(), // One default for sending
-    lastTested: timestamp("lastTested"),
-    testStatus: mysqlEnum("testStatus", ["untested", "success", "failed"]).default("untested").notNull(),
-    createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(), // e.g., "Gmail Ventas"
+  host: varchar("host", { length: 255 }).notNull(), // e.g., smtp.gmail.com
+  port: int("port").notNull(), // e.g., 587
+  secure: boolean("secure").default(false).notNull(), // true for 465, false for 587
+  user: varchar("user", { length: 255 }).notNull(), // email address
+  password: text("password"), // encrypted
+  fromEmail: varchar("fromEmail", { length: 255 }), // "From" address
+  fromName: varchar("fromName", { length: 100 }), // "From" name
+  isActive: boolean("isActive").default(true).notNull(),
+  isDefault: boolean("isDefault").default(false).notNull(), // One default for sending
+  lastTested: timestamp("lastTested"),
+  testStatus: mysqlEnum("testStatus", ["untested", "success", "failed"]).default("untested").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
 export type SmtpConnection = typeof smtpConnections.$inferSelect;

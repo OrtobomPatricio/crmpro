@@ -17,6 +17,11 @@ export const templatesRouter = router({
             content: z.string().min(1),
             type: z.enum(["whatsapp", "email"]),
             variables: z.array(z.string()).optional(),
+            attachments: z.array(z.object({
+                url: z.string(),
+                name: z.string(),
+                type: z.string()
+            })).optional(),
         }))
         .mutation(async ({ input }) => {
             const db = await getDb();
@@ -31,6 +36,11 @@ export const templatesRouter = router({
             name: z.string().optional(),
             content: z.string().optional(),
             variables: z.array(z.string()).optional(),
+            attachments: z.array(z.object({
+                url: z.string(),
+                name: z.string(),
+                type: z.string()
+            })).optional(),
         }))
         .mutation(async ({ input }) => {
             const db = await getDb();

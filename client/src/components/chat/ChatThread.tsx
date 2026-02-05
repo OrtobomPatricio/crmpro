@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import EmojiPicker, { Theme as EmojiTheme } from "emoji-picker-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import axios from "axios";
+import { ChatQuickReplies } from "./ChatQuickReplies";
 
 interface ChatThreadProps {
     conversationId: number;
@@ -134,6 +135,31 @@ export function ChatThread({ conversationId }: ChatThreadProps) {
 
     const openFileSelector = () => {
         fileInputRef.current?.click();
+    };
+
+    const handleTemplateSelect = (content: string, attachments?: { url: string; name: string; type: string }[]) => {
+        if (content) {
+            setInputText(prev => prev + content);
+            setTimeout(() => inputRef.current?.focus(), 10);
+        }
+
+        if (attachments && attachments.length > 0) {
+            attachments.forEach(att => {
+                let msgType: 'image' | 'video' | 'audio' | 'document' = 'document';
+                if (att.type.startsWith('image/')) msgType = 'image';
+                else if (att.type.startsWith('video/')) msgType = 'video';
+                else if (att.type.startsWith('audio/')) msgType = 'audio';
+
+                sendMessage.mutate({
+                    conversationId,
+                    messageType: msgType,
+                    mediaUrl: att.url,
+                    mediaName: att.name,
+                    mediaMimeType: att.type,
+                    content: "" // No caption for now to avoid duplication
+                });
+            });
+        }
     };
 
 
@@ -300,9 +326,7 @@ export function ChatThread({ conversationId }: ChatThreadProps) {
                         <Button variant="ghost" size="icon" onClick={openFileSelector} disabled={isUploading} className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full transition-colors">
                             <Paperclip className="h-5 w-5" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={openFileSelector} disabled={isUploading} className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full transition-colors">
-                            <ImageIcon className="h-5 w-5" />
-                        </Button>
+                        <ChatQuickReplies onSelect={handleTemplateSelect} />
                     </div>
 
                     <div className="flex-1 relative bg-muted/40 hover:bg-muted/60 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/20 transition-all rounded-[24px] border border-transparent focus-within:border-primary/30">
