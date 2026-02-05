@@ -137,6 +137,16 @@ export const whatsappRouter = router({
                 throw new Error("Connection not found");
             }
 
+
+            // 3. ACTUAL DISCONNECT - Kill the session! (Fix memory leak)
+            // Even if it was cascaded, we must ensure memory and file cleanup happens
+            // whatsappNumberId might be different if we only have the connection ID.
+            // But BaileysService uses whatsappNumberId (which is passed as userId in session logic).
+            // Wait, connection[0].whatsappNumberId IS the ID used for Baileys session (userId)
+            if (connection[0].whatsappNumberId) {
+                await BaileysService.disconnect(connection[0].whatsappNumberId);
+            }
+
             // Delete connection (will cascade delete conversations if configured)
             await db.delete(whatsappConnections).where(eq(whatsappConnections.id, input.id));
 
@@ -157,6 +167,12 @@ export const whatsappRouter = router({
             await db.update(whatsappConnections)
                 .set({ isConnected: false, accessToken: null })
                 .where(eq(whatsappConnections.phoneNumberId, input.phoneNumberId));
+
+            // Find the number ID to kill session
+            const conn = await db.select().from(whatsappConnections).where(eq(whatsappConnections.phoneNumberId, input.phoneNumberId)).limit(1);
+            if (conn.length > 0 && conn[0].whatsappNumberId) {
+                await BaileysService.disconnect(conn[0].whatsappNumberId);
+            }
 
             return { success: true };
         }),

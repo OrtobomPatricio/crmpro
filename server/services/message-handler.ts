@@ -4,48 +4,65 @@ import { leads, conversations, chatMessages, whatsappNumbers, pipelines, pipelin
 import { eq, and, asc, sql } from "drizzle-orm";
 
 export const MessageHandler = {
-    async handleIncomingMessage(userId: number, message: any) {
+    async handleIncomingMessage(userId: number, message: any, upsertType: 'append' | 'notify' = 'notify') {
         const db = await getDb();
         if (!db) return;
 
-        console.log("Processing incoming message for userId:", userId);
-
+        // Skip strange messages (status broadcasts, etc)
         const jid = message.key.remoteJid;
-        console.log("MessageHandler: Remote JID:", jid);
+        if (!jid || jid.includes('status@broadcast') || jid.includes('@lid')) {
+            return;
+        }
 
-        if (!jid || jid.includes('@g.us') || jid.includes('status@broadcast') || jid.includes('@lid')) {
-            console.log("MessageHandler: Ignoring group/status/broadcast/lid");
+        // 1. Idempotency Check (Prevent Duplicates)
+        // We trust message.key.id from WhatsApp
+        const existingMessage = await db.select({ id: chatMessages.id })
+            .from(chatMessages)
+            .where(eq(chatMessages.whatsappMessageId, message.key.id))
+            .limit(1);
+
+        if (existingMessage.length > 0) {
+            console.log(`[MessageHandler] Skipping duplicate message ${message.key.id}`);
             return;
         }
 
         const fromMe = message.key.fromMe;
-        if (fromMe) {
-            console.log("MessageHandler: Ignoring self-message in handler check");
-            return;
-        }
-
         const text = message.message?.conversation ||
             message.message?.extendedTextMessage?.text ||
             message.message?.imageMessage?.caption ||
-            "Media Message";
+            message.message?.videoMessage?.caption ||
+            (message.message?.imageMessage ? "Image" : null) ||
+            (message.message?.videoMessage ? "Video" : null) ||
+            (message.message?.audioMessage ? "Audio" : null) ||
+            (message.message?.documentMessage ? "Document" : null) ||
+            (message.message?.stickerMessage ? "Sticker" : null) ||
+            "Media/Unknown";
 
-        console.log("MessageHandler: Extracted Text:", text);
+        // Extract Timestamp (seconds to milliseconds)
+        const messageTimestamp = message.messageTimestamp ? new Date(Number(message.messageTimestamp) * 1000) : new Date();
 
+        // 2. Determine Contact (Lead)
         // simple phone number extraction (remove @s.whatsapp.net)
         const phoneNumber = '+' + jid.split('@')[0];
         const contactName = message.pushName || "Unknown";
-        console.log("MessageHandler: Extracted Contact:", { phoneNumber, contactName });
 
         try {
-            // 1. Find or Create Lead
+            // Find or Create Lead
             let leadId: number;
             const existingLead = await db.select().from(leads).where(eq(leads.phone, phoneNumber)).limit(1);
 
             if (existingLead.length > 0) {
                 leadId = existingLead[0].id;
-                // Optional: Update lastContactedAt
-                await db.update(leads).set({ lastContactedAt: new Date() }).where(eq(leads.id, leadId));
+                // Only update lastContactedAt if it's a NEW message (notify), not history sync
+                if (upsertType === 'notify') {
+                    await db.update(leads).set({ lastContactedAt: new Date() }).where(eq(leads.id, leadId));
+                }
             } else {
+                // If syncing history, maybe we DON'T want to create leads for everyone who ever messaged?
+                // But for a CRM, yes we probably do.
+                // But let's be careful. If I have 1000 chats, I get 1000 leads.
+                // For now, let's allow it as requested "historial".
+
                 // Determine Default Pipeline Stage
                 let stageId: number | null = null;
                 let nextOrder = 0;
@@ -68,21 +85,20 @@ export const MessageHandler = {
                 }
 
                 const [newLead] = await db.insert(leads).values({
-                    name: contactName,
+                    name: contactName !== "Unknown" ? contactName : phoneNumber, // Helper if no name
                     phone: phoneNumber,
                     country: "Unknown",
-
                     pipelineStageId: stageId,
                     kanbanOrder: nextOrder,
                     source: "whatsapp_inbound",
-                    createdAt: new Date(),
+                    createdAt: new Date(), // This is when LEAD was created in CRM, not message time
                     updatedAt: new Date(),
-                    lastContactedAt: new Date(),
+                    lastContactedAt: messageTimestamp,
                 }).$returningId();
                 leadId = newLead.id;
             }
 
-            // 2. Find or Create Conversation
+            // 3. Find or Create Conversation
             let conversationId: number;
             const existingConv = await db.select().from(conversations).where(
                 and(
@@ -94,10 +110,30 @@ export const MessageHandler = {
 
             if (existingConv.length > 0) {
                 conversationId = existingConv[0].id;
-                await db.update(conversations).set({
-                    lastMessageAt: new Date(),
-                    unreadCount: (existingConv[0].unreadCount || 0) + 1
-                }).where(eq(conversations.id, conversationId));
+
+                // Sync Logic:
+                // If it's a 'notify' (real-time) message, increment unread count & update lastMessageAt
+                // If it's 'append' (history), assume read (or at least don't notify) and update lastMessageAt only if newer
+
+                const updates: any = {};
+
+                if (upsertType === 'notify' && !fromMe) {
+                    updates.unreadCount = (existingConv[0].unreadCount || 0) + 1;
+                    updates.lastMessageAt = new Date(); // now
+                    updates.status = 'active'; // revive archived chats if new message comes
+                } else if (upsertType === 'append' || fromMe) {
+                    // For history, we might want to ensure lastMessageAt reflects the LATEST message
+                    // But we are processing one by one.
+                    // Let's just update lastMessageAt if this message is newer than current lastMessageAt
+                    if (!existingConv[0].lastMessageAt || messageTimestamp > existingConv[0].lastMessageAt) {
+                        updates.lastMessageAt = messageTimestamp;
+                    }
+                }
+
+                if (Object.keys(updates).length > 0) {
+                    await db.update(conversations).set(updates).where(eq(conversations.id, conversationId));
+                }
+
             } else {
                 const [newConv] = await db.insert(conversations).values({
                     channel: 'whatsapp',
@@ -105,27 +141,39 @@ export const MessageHandler = {
                     leadId: leadId,
                     contactPhone: phoneNumber,
                     contactName: contactName,
-                    unreadCount: 1,
-                    lastMessageAt: new Date(),
+                    unreadCount: (upsertType === 'notify' && !fromMe) ? 1 : 0,
+                    lastMessageAt: messageTimestamp,
                     status: 'active'
                 }).$returningId();
                 conversationId = newConv.id;
             }
 
-            // 3. Insert Chat Message
+            // 4. Insert Chat Message
+            // Detect Type
+            let msgType: 'text' | 'image' | 'video' | 'audio' | 'document' | 'sticker' = 'text';
+            if (message.message?.imageMessage) msgType = 'image';
+            else if (message.message?.videoMessage) msgType = 'video';
+            else if (message.message?.audioMessage) msgType = 'audio';
+            else if (message.message?.documentMessage) msgType = 'document';
+            else if (message.message?.stickerMessage) msgType = 'sticker';
+
+            // TODO: Handle media download/upload to S3/Local
+            // For now, we just verify text/type.
+
             await db.insert(chatMessages).values({
                 conversationId: conversationId,
                 whatsappNumberId: userId,
-                direction: 'inbound',
-                messageType: 'text',
+                direction: fromMe ? 'outbound' : 'inbound',
+                messageType: msgType,
                 content: text,
                 whatsappMessageId: message.key.id,
-                status: 'delivered',
-                deliveredAt: new Date(),
-                createdAt: new Date()
+                status: fromMe ? 'sent' : 'delivered', // Assume sent if from me in history
+                deliveredAt: fromMe ? null : messageTimestamp,
+                sentAt: messageTimestamp,
+                createdAt: new Date() // Record creation time
             });
 
-            console.log(`Message saved for Lead ${leadId}, Conv ${conversationId}`);
+            console.log(`[MessageHandler] Saved ${upsertType} msg ${message.key.id} for Lead ${leadId}`);
 
         } catch (error) {
             console.error("Error handling incoming message:", error);

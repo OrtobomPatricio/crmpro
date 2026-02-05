@@ -36,7 +36,7 @@ export const BaileysService = {
             printQRInTerminal: false,
             auth: state,
             browser: ["Imagine CRM", "Chrome", "10.0"],
-            syncFullHistory: false, // Optimisation for VPS
+            syncFullHistory: true, // Enable full history sync
         });
 
         // Update local state
@@ -75,27 +75,38 @@ export const BaileysService = {
         });
 
         sock.ev.on('messages.upsert', async (m) => {
-            console.log("Baileys: messages.upsert received", JSON.stringify(m, null, 2));
+            console.log("Baileys: messages.upsert received type:", m.type);
 
-            // Sometimes type is 'append' or others, but 'notify' is standard for new messages.
-            // Let's process if there are messages, regardless of strict type for now to debug.
             if (m.messages && m.messages.length > 0) {
                 for (const msg of m.messages) {
-                    console.log("Baileys: Processing message key", msg.key);
-
                     // Check if it's a message from another user (not us)
                     if (!msg.key.fromMe) {
-                        console.log("Baileys: Handing over to MessageHandler");
-                        // Import dynamically or use imported service
-                        // We should import MessageHandler at top level if possible, but for now specific call:
                         try {
                             const { MessageHandler } = await import("./message-handler");
-                            await MessageHandler.handleIncomingMessage(userId, msg);
+                            // Pass the upsert type (notify vs append) to handle history correctly
+                            await MessageHandler.handleIncomingMessage(userId, msg, m.type);
                         } catch (e) {
                             console.error("Baileys: Error invoking MessageHandler", e);
                         }
                     } else {
-                        console.log("Baileys: Ignoring own message");
+                        // Ideally we should also sync our own sent messages from history
+                        // But for now let's focus on incoming
+                        // Validating if we should sync "fromMe" history messages too?
+                        // User asked for "historial", so YES, we should probably sync sent messages from history too.
+                        // Let's enable checking "fromMe" ONLY if type is NOT 'notify' (which is real-time).
+                        // Real-time "fromMe" are usually handled by us sending it, but if sent from phone directly?
+                        // For safety, let's stick to incoming first as per "Safety" plan, 
+                        // but actually "historial" implies both sides.
+                        // Let's loosen the check: pass everything to handler, let handler decide based on 'fromMe'.
+
+                        // REVISING STRATEGY: user wants history. History includes sent messages.
+                        // I will pass ALL messages to handler, but flag them.
+                        try {
+                            const { MessageHandler } = await import("./message-handler");
+                            await MessageHandler.handleIncomingMessage(userId, msg, m.type);
+                        } catch (e) {
+                            console.error("Baileys: Error invoking MessageHandler for own message", e);
+                        }
                     }
                 }
             }
