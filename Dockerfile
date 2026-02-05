@@ -11,7 +11,7 @@ COPY package.json pnpm-lock.yaml ./
 COPY patches ./patches
 # Install dependencies including dev dependencies (needed for build)
 RUN apt-get update && apt-get install -y --no-install-recommends patch && rm -rf /var/lib/apt/lists/*
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 # Apply patches if any
 RUN patch -d node_modules/wouter -p1 < patches/wouter@3.7.1.patch || echo "Patch applied or unnecessary"
 
