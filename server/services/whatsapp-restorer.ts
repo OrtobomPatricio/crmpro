@@ -30,17 +30,31 @@ export async function startWhatsAppSessions() {
 
             console.log(`[WhatsAppSession] Restoring session for Number ID: ${conn.whatsappNumberId}`);
             try {
-                // Initialize session (this will load auth credentials from disk)
+                // Initialize session
                 await BaileysService.initializeSession(
                     conn.whatsappNumberId,
-                    (qr) => console.log(`[WhatsAppSession] QR Update for ${conn.whatsappNumberId}`),
+                    async (qr) => {
+                        console.log(`[WhatsAppSession] QR Update for ${conn.whatsappNumberId} (Session Invalid)`);
+                        // Session is invalid (needs QR), mark as disconnected in DB
+                        const db = await getDb();
+                        if (db) {
+                            await db.update(whatsappConnections)
+                                .set({ isConnected: false })
+                                .where(eq(whatsappConnections.id, conn.id));
+
+                            await db.update(whatsappNumbers)
+                                .set({ isConnected: false, status: 'disconnected' })
+                                .where(eq(whatsappNumbers.id, conn.whatsappNumberId!));
+                        }
+                    },
                     (status) => console.log(`[WhatsAppSession] Status Update for ${conn.whatsappNumberId}: ${status}`)
                 );
             } catch (err) {
                 console.error(`[WhatsAppSession] Failed to restore session ${conn.whatsappNumberId}:`, err);
-
-                // Optional: Mark as disconnected if file is missing/corrupt?
-                // await db.update(whatsappConnections).set({ isConnected: false }).where(eq(whatsappConnections.id, conn.id));
+                const db = await getDb();
+                if (db) {
+                    await db.update(whatsappConnections).set({ isConnected: false }).where(eq(whatsappConnections.id, conn.id));
+                }
             }
         }
     } catch (error) {

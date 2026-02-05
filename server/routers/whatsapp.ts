@@ -4,6 +4,7 @@ import { whatsappConnections, whatsappNumbers } from "../../drizzle/schema";
 import { getDb } from "../db";
 import { permissionProcedure, router } from "../_core/trpc";
 import { fetchCloudTemplates } from "../whatsapp/cloud";
+import { BaileysService } from "../services/baileys";
 
 export const whatsappRouter = router({
     list: permissionProcedure("settings.view")
@@ -31,7 +32,20 @@ export const whatsappRouter = router({
                 .leftJoin(whatsappNumbers, eq(whatsappConnections.whatsappNumberId, whatsappNumbers.id))
                 .orderBy(whatsappConnections.createdAt);
 
-            return connections;
+            // Merge with real-time status
+            return connections.map(conn => {
+                let realStatus = conn.isConnected;
+                if (conn.number) {
+                    const status = BaileysService.getStatus(conn.number.id);
+                    // If Baileys says disconnected/connecting/qr_ready, trust it over DB
+                    if (status === 'disconnected') realStatus = false;
+                    if (status === 'connected') realStatus = true;
+                    // For QR ready, technically incorrectly connected in DB but we want to show it needs action
+                    // But the UI might expects boolean. 
+                    // Let's trust Baileys status if available.
+                }
+                return { ...conn, isConnected: realStatus };
+            });
         }),
 
     connect: permissionProcedure("settings.manage")
