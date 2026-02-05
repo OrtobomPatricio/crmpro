@@ -7,7 +7,7 @@ import {
     DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreVertical, UserPlus, Archive, Ban, User } from "lucide-react";
+import { MoreVertical, UserPlus, Archive, Ban, User, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -47,6 +47,17 @@ export function ChatActionsMenu({ conversationId, currentAssignedId }: ChatActio
         onError: (err) => toast.error("Error al actualizar estado", { description: err.message })
     });
 
+    const deleteMutation = trpc.chat.delete.useMutation({
+        onSuccess: () => {
+            toast.success("Chat eliminado correctamente");
+            utils.chat.listConversations.invalidate();
+            // Redirect or clear selection would be ideal here depending on parent behavior
+            window.history.replaceState({}, "", "/chat");
+            window.location.reload(); // Simple reload to clear state for now
+        },
+        onError: (err) => toast.error("Error al eliminar chat", { description: err.message })
+    });
+
     const handleAssign = () => {
         if (!selectedAgentId) return;
         assignMutation.mutate({
@@ -64,6 +75,12 @@ export function ChatActionsMenu({ conversationId, currentAssignedId }: ChatActio
     const handleBlock = () => {
         if (confirm("¿Bloquear este contacto? No recibirás más mensajes.")) {
             statusMutation.mutate({ conversationId, status: "blocked" });
+        }
+    };
+
+    const handleDelete = () => {
+        if (confirm("¿Estás seguro de ELIMINAR este chat? Esta acción es irreversible.")) {
+            deleteMutation.mutate({ conversationId });
         }
     };
 
@@ -87,9 +104,13 @@ export function ChatActionsMenu({ conversationId, currentAssignedId }: ChatActio
                         Archivar Chat
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleBlock} className="text-destructive focus:text-destructive">
+                    <DropdownMenuItem onClick={handleBlock} className="text-orange-500 focus:text-orange-500">
                         <Ban className="mr-2 h-4 w-4" />
                         Bloquear Contacto
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Eliminar Chat
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>

@@ -255,6 +255,15 @@ export const chatRouter = router({
             return { success: true };
         }),
 
+    delete: permissionProcedure("chat.manage")
+        .input(z.object({ conversationId: z.number() }))
+        .mutation(async ({ input }) => {
+            const db = await getDb();
+            if (!db) throw new Error("Database not available");
+            await db.delete(conversations).where(eq(conversations.id, input.conversationId));
+            return { success: true };
+        }),
+
     assign: permissionProcedure("chat.assign")
         .input(z.object({ conversationId: z.number(), assignedToId: z.number().nullable() }))
         .mutation(async ({ input }) => {
