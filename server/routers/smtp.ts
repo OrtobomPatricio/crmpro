@@ -40,6 +40,7 @@ export const smtpRouter = router({
                 isActive: true,
                 isDefault: false,
                 testStatus: "untested",
+                lastTested: null,
             }).$returningId();
 
             return { success: true, id: result.id };
