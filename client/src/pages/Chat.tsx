@@ -1,5 +1,6 @@
 import { ChatList } from "@/components/chat/ChatList";
 import { ChatThread } from "@/components/chat/ChatThread";
+import { ChatLeadDetails } from "@/components/chat/ChatLeadDetails";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Search, ArrowLeft } from "lucide-react";
@@ -154,24 +155,15 @@ export default function ChatPage() {
 
       {/* Right: Lead Details (Collapsible) */}
       {selectedConversationId && (
-        <div className="w-72 hidden xl:block animate-in fade-in slide-in-from-right-4 duration-500">
-          <Card className="h-full border-border/50 shadow-sm p-4 bg-background/50 backdrop-blur-sm">
-            <h3 className="font-semibold text-sm mb-4 flex items-center gap-2">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              Detalles del Lead
-            </h3>
-            <div className="flex flex-col items-center justify-center h-40 text-muted-foreground bg-muted/10 rounded-lg text-sm border border-dashed border-border mb-4">
-              <span className="opacity-70">Información del Contacto</span>
+        <div className="hidden xl:block animate-in fade-in slide-in-from-right-4 duration-500 h-[calc(100vh-4rem)]">
+          {selectedConversation && selectedConversation.leadId ? (
+            <ChatLeadDetails leadId={selectedConversation.leadId} />
+          ) : (
+            <div className="w-80 h-full border-l p-4 flex flex-col items-center justify-center text-muted-foreground bg-background">
+              <Users className="h-8 w-8 mb-2 opacity-20" />
+              <p>Este chat no tiene un lead asociado.</p>
             </div>
-            <div className="space-y-3">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="space-y-1">
-                  <div className="h-3 w-1/3 bg-muted/30 rounded" />
-                  <div className="h-8 w-full bg-muted/20 rounded" />
-                </div>
-              ))}
-            </div>
-          </Card>
+          )}
         </div>
       )}
     </div>

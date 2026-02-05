@@ -8,9 +8,12 @@ import { cn } from "@/lib/utils";
 import { format, isSameDay, isToday, isYesterday } from "date-fns";
 import { es } from "date-fns/locale";
 import { AnimatePresence, motion } from "framer-motion";
-import { Image as ImageIcon, Paperclip, Send, Smile, Info } from "lucide-react";
+import { Image as ImageIcon, Paperclip, Send, Smile, Info, X, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import EmojiPicker, { Theme as EmojiTheme } from "emoji-picker-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import axios from "axios";
 
 interface ChatThreadProps {
     conversationId: number;
@@ -18,7 +21,9 @@ interface ChatThreadProps {
 
 export function ChatThread({ conversationId }: ChatThreadProps) {
     const [inputText, setInputText] = useState("");
+    const [isUploading, setIsUploading] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const { data: messages, isLoading, refetch } = trpc.chat.getMessages.useQuery(
         { conversationId },
@@ -61,7 +66,7 @@ export function ChatThread({ conversationId }: ChatThreadProps) {
         }
     };
 
-    const handleSend = () => {
+    const handleSendText = () => {
         if (!inputText.trim()) return;
         sendMessage.mutate({
             conversationId,
@@ -73,9 +78,63 @@ export function ChatThread({ conversationId }: ChatThreadProps) {
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            handleSend();
+            handleSendText();
         }
     };
+
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const files = Array.from(e.target.files);
+            setIsUploading(true);
+
+            // Upload each file
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append('files', file);
+
+                try {
+                    // Upload to server
+                    const res = await axios.post('/api/upload', formData, {
+                        headers: { 'Content-Type': 'multipart/form-data' },
+                        withCredentials: true
+                    });
+
+                    // Server returns Array<{ filename, originalname, mimetype, url, size }>
+                    const uploadedFiles = res.data.files || [];
+                    if (uploadedFiles.length === 0) throw new Error("No files uploaded");
+
+                    const uploaded = uploadedFiles[0];
+
+                    // Determine type
+                    let msgType: 'image' | 'video' | 'audio' | 'document' = 'document';
+                    if (file.type.startsWith('image/')) msgType = 'image';
+                    else if (file.type.startsWith('video/')) msgType = 'video';
+                    else if (file.type.startsWith('audio/')) msgType = 'audio';
+
+                    // Send Message
+                    sendMessage.mutate({
+                        conversationId,
+                        messageType: msgType,
+                        mediaUrl: uploaded.url || `/api/uploads/${uploaded.filename}`, // Fallback if url property missing
+                        mediaName: uploaded.originalname,
+                        mediaMimeType: uploaded.mimetype,
+                        content: "" // Optional caption
+                    });
+
+                } catch (err: any) {
+                    console.error("Upload failed", err);
+                    toast.error(`Error subiendo archivo ${file.name}: ${err.message || 'Error desconocido'}`);
+                }
+            }
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = ""; // Reset
+        }
+    };
+
+    const openFileSelector = () => {
+        fileInputRef.current?.click();
+    };
+
 
     if (isLoading) {
         return (
@@ -106,8 +165,8 @@ export function ChatThread({ conversationId }: ChatThreadProps) {
     return (
         <div className="flex flex-col h-full bg-slate-50/50 dark:bg-zinc-900/30">
             {/* Messages Area */}
-            <ScrollArea className="flex-1 px-4 py-2">
-                <div className="flex flex-col gap-6 min-h-0 pb-4">
+            <ScrollArea className="flex-1 h-full min-h-0">
+                <div className="px-4 py-2 flex flex-col gap-6 min-h-0 pb-4">
                     {messages?.length === 0 && (
                         <motion.div
                             initial={{ opacity: 0, scale: 0.9 }}
@@ -227,12 +286,20 @@ export function ChatThread({ conversationId }: ChatThreadProps) {
 
             {/* Premium Input Area */}
             <div className="p-4 bg-background/80 backdrop-blur-md border-t border-border/40">
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    multiple
+                    onChange={handleFileSelect}
+                />
+
                 <div className="flex gap-2 items-end max-w-4xl mx-auto">
                     <div className="flex gap-1 shrink-0 pb-1">
-                        <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full transition-colors">
+                        <Button variant="ghost" size="icon" onClick={openFileSelector} disabled={isUploading} className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full transition-colors">
                             <Paperclip className="h-5 w-5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full transition-colors">
+                        <Button variant="ghost" size="icon" onClick={openFileSelector} disabled={isUploading} className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full transition-colors">
                             <ImageIcon className="h-5 w-5" />
                         </Button>
                     </div>
@@ -246,25 +313,37 @@ export function ChatThread({ conversationId }: ChatThreadProps) {
                             className="pr-10 py-6 bg-transparent border-none shadow-none focus-visible:ring-0 text-[15px] resize-none overflow-hidden"
                             autoComplete="off"
                         />
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-primary transition-colors rounded-full"
-                        >
-                            <Smile className="h-5 w-5" />
-                        </Button>
+
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-primary transition-colors rounded-full"
+                                >
+                                    <Smile className="h-5 w-5" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent side="top" align="end" className="p-0 border-none shadow-none bg-transparent w-auto">
+                                <EmojiPicker
+                                    onEmojiClick={(emoji) => setInputText(prev => prev + emoji.emoji)}
+                                    theme={EmojiTheme.AUTO}
+                                    lazyLoadEmojis
+                                />
+                            </PopoverContent>
+                        </Popover>
                     </div>
 
                     <Button
-                        onClick={handleSend}
-                        disabled={!inputText.trim() || sendMessage.isPending}
+                        onClick={handleSendText}
+                        disabled={(!inputText.trim() && !isUploading) || sendMessage.isPending}
                         size="icon"
                         className={cn(
                             "rounded-full h-11 w-11 shadow-lg transition-all duration-300 pb-1",
-                            inputText.trim() ? "scale-100 opacity-100" : "scale-90 opacity-80 grayscale"
+                            (inputText.trim() || isUploading) ? "scale-100 opacity-100" : "scale-90 opacity-80 grayscale"
                         )}
                     >
-                        <Send className="h-5 w-5 -ml-0.5" />
+                        {isUploading || sendMessage.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5 -ml-0.5" />}
                     </Button>
                 </div>
             </div>
