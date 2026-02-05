@@ -218,9 +218,9 @@ function ChatWindow({ recipient, onBack, currentUser }: { recipient: { id: numbe
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-50 relative">
+        <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden">
             {/* Header */}
-            <div className="p-3 border-b bg-white flex items-center gap-3 shadow-sm z-10">
+            <div className="p-3 border-b bg-white flex items-center gap-3 shadow-sm z-10 shrink-0">
                 <Button variant="ghost" size="icon" onClick={onBack} className="-ml-2">
                     <ChevronLeft className="h-5 w-5" />
                 </Button>
@@ -243,7 +243,7 @@ function ChatWindow({ recipient, onBack, currentUser }: { recipient: { id: numbe
             </div>
 
             {/* Messages */}
-            <ScrollArea className="flex-1 p-4">
+            <div className="flex-1 p-4 overflow-y-auto min-h-0 bg-slate-50/50">
                 <div className="space-y-4 pb-2">
                     {messages?.map((msg) => {
                         const isMe = msg.senderId === currentUser?.id;
@@ -296,10 +296,10 @@ function ChatWindow({ recipient, onBack, currentUser }: { recipient: { id: numbe
                     })}
                     <div ref={scrollRef} />
                 </div>
-            </ScrollArea>
+            </div>
 
             {/* Input Area */}
-            <div className="p-3 bg-white border-t relative">
+            <div className="p-3 bg-white border-t relative shrink-0">
                 {showEmoji && (
                     <div className="absolute bottom-full left-4 mb-2 shadow-xl rounded-lg z-50">
                         <EmojiPicker

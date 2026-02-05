@@ -50,7 +50,7 @@ export const authRouter = router({
     }),
 
     loginWithCredentials: publicProcedure
-        .input(z.object({ email: z.string().email(), password: z.string() }))
+        .input(z.object({ email: z.string().includes("@"), password: z.string() }))
         .mutation(async ({ input, ctx }) => {
             const db = await getDb();
             if (!db) return { success: false, error: "Database not available" };

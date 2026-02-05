@@ -46,7 +46,7 @@ export const settingsRouter = router({
                 slaConfig: z
                     .object({
                         maxResponseTimeMinutes: z.number().min(5),
-                        alertEmail: z.string().email().optional().or(z.literal("")),
+                        alertEmail: z.string().includes("@").optional().or(z.literal("")),
                         notifySupervisor: z.boolean(),
                     })
                     .optional(),
