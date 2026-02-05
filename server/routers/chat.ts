@@ -79,6 +79,15 @@ export const chatRouter = router({
             };
         }),
 
+    getById: permissionProcedure("chat.view")
+        .input(z.object({ id: z.number() }))
+        .query(async ({ input }) => {
+            const db = await getDb();
+            if (!db) return null;
+            const res = await db.select().from(conversations).where(eq(conversations.id, input.id)).limit(1);
+            return res[0] || null;
+        }),
+
     listConversations: permissionProcedure("chat.view")
         .input(z.object({ whatsappNumberId: z.number().optional() }))
         .query(async ({ input, ctx }) => {

@@ -63,6 +63,11 @@ export default function ChatPage() {
     }
   });
 
+  const { data: selectedConversation } = trpc.chat.getById.useQuery(
+    { id: selectedConversationId! },
+    { enabled: !!selectedConversationId }
+  );
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const leadIdParam = params.get("leadId");
