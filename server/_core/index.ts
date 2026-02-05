@@ -233,6 +233,10 @@ async function startServer() {
     startLogCleanup();
     startAutoBackup();
     startSessionCleanup();
+    // Restore WhatsApp Sessions
+    import("../services/whatsapp-restorer").then(({ startWhatsAppSessions }) => {
+      startWhatsAppSessions().catch(err => console.error("[WhatsAppSession] Startup failed:", err));
+    });
   });
 }
 
