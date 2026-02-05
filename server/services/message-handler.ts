@@ -13,8 +13,8 @@ export const MessageHandler = {
         const jid = message.key.remoteJid;
         console.log("MessageHandler: Remote JID:", jid);
 
-        if (!jid || jid.includes('@g.us') || jid.includes('status@broadcast')) {
-            console.log("MessageHandler: Ignoring group/status/broadcast");
+        if (!jid || jid.includes('@g.us') || jid.includes('status@broadcast') || jid.includes('@lid')) {
+            console.log("MessageHandler: Ignoring group/status/broadcast/lid");
             return;
         }
 

@@ -24,6 +24,7 @@ export function ChatThread({ conversationId }: ChatThreadProps) {
     const [isUploading, setIsUploading] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
 
     const { data: messages, isLoading, refetch } = trpc.chat.getMessages.useQuery(
         { conversationId },
@@ -306,6 +307,7 @@ export function ChatThread({ conversationId }: ChatThreadProps) {
 
                     <div className="flex-1 relative bg-muted/40 hover:bg-muted/60 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/20 transition-all rounded-[24px] border border-transparent focus-within:border-primary/30">
                         <Input
+                            ref={inputRef}
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
                             onKeyDown={handleKeyDown}
@@ -326,7 +328,11 @@ export function ChatThread({ conversationId }: ChatThreadProps) {
                             </PopoverTrigger>
                             <PopoverContent side="top" align="end" className="p-0 border-none shadow-none bg-transparent w-auto">
                                 <EmojiPicker
-                                    onEmojiClick={(emoji) => setInputText(prev => prev + emoji.emoji)}
+                                    onEmojiClick={(emoji) => {
+                                        setInputText(prev => prev + emoji.emoji);
+                                        // Keep focus on input for better typing flow
+                                        setTimeout(() => inputRef.current?.focus(), 10);
+                                    }}
                                     theme={EmojiTheme.AUTO}
                                     lazyLoadEmojis
                                 />
