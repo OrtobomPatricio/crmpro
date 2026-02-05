@@ -1,6 +1,8 @@
 import { ChatList } from "@/components/chat/ChatList";
 import { ChatThread } from "@/components/chat/ChatThread";
+
 import { ChatLeadDetails } from "@/components/chat/ChatLeadDetails";
+import { ChatActionsMenu } from "@/components/chat/ChatActionsMenu";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Search, ArrowLeft } from "lucide-react";
@@ -139,6 +141,13 @@ export default function ChatPage() {
                   </span>
                   <span className="font-medium text-sm">Conversación Activa</span>
                 </div>
+
+                {selectedConversation && (
+                  <ChatActionsMenu
+                    conversationId={selectedConversation.id}
+                    currentAssignedId={selectedConversation.assignedToId}
+                  />
+                )}
               </div>
             </div>
             <div className="flex-1 overflow-hidden relative">

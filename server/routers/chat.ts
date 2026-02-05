@@ -243,6 +243,18 @@ export const chatRouter = router({
             return { success: true };
         }),
 
+    updateStatus: permissionProcedure("chat.assign")
+        .input(z.object({
+            conversationId: z.number(),
+            status: z.enum(["active", "archived", "blocked"])
+        }))
+        .mutation(async ({ input }) => {
+            const db = await getDb();
+            if (!db) throw new Error("Database not available");
+            await db.update(conversations).set({ status: input.status }).where(eq(conversations.id, input.conversationId));
+            return { success: true };
+        }),
+
     assign: permissionProcedure("chat.assign")
         .input(z.object({ conversationId: z.number(), assignedToId: z.number().nullable() }))
         .mutation(async ({ input }) => {
