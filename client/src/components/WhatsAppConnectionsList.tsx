@@ -65,6 +65,19 @@ export function WhatsAppConnectionsList() {
         },
     });
 
+    const createNumberMutation = trpc.whatsappNumbers.create.useMutation({
+        onSuccess: (data) => {
+            toast.success("Número creado. Generando QR...");
+            setShowModal(false);
+            utils.whatsapp.list.invalidate(); // Refresh list to show new item
+            // Directly trigger QR generation
+            handleConnectQR(data.id);
+        },
+        onError: (e) => {
+            toast.error(`Error al crear número: ${e.message}`);
+        }
+    });
+
     if (isLoading) {
         return <div className="text-sm text-muted-foreground">Cargando conexiones...</div>;
     }
@@ -93,12 +106,50 @@ export function WhatsAppConnectionsList() {
                     {/* ... New Number Dialog form placeholders ... */}
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>Agregar Nuevo Número</DialogTitle>
+                            <DialogTitle>Agregar Nuevo Número (Baileys)</DialogTitle>
+                            <DialogDescription>
+                                Agrega un número para conectarlo mediante código QR.
+                            </DialogDescription>
                         </DialogHeader>
-                        <div className="p-4 text-center">
-                            <p className="text-muted-foreground mb-4">Para conectar un número, usa el botón "Ver QR" en las tarjetas de abajo.</p>
-                            <Button onClick={() => handleConnectQR(Date.now())} disabled>
-                                Iniciar Conexión Manual
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Nombre (Opcional)</label>
+                                <input
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    placeholder="Ej: Celular Ventas"
+                                    id="new-display-name"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Número de Teléfono</label>
+                                <input
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    placeholder="Ej: +595981234567"
+                                    id="new-phone-number"
+                                />
+                                <p className="text-xs text-muted-foreground">Solo como referencia. El número real se verificará al escanear.</p>
+                            </div>
+                            <Button
+                                onClick={() => {
+                                    const name = (document.getElementById('new-display-name') as HTMLInputElement).value;
+                                    const phone = (document.getElementById('new-phone-number') as HTMLInputElement).value;
+
+                                    if (!phone) {
+                                        toast.error("El número de teléfono es obligatorio");
+                                        return;
+                                    }
+
+                                    createNumberMutation.mutate({
+                                        phoneNumber: phone,
+                                        displayName: name || "Nuevo Número",
+                                        country: "Unknown",
+                                        countryCode: "+"
+                                    });
+                                }}
+                                disabled={createNumberMutation.isPending}
+                                className="w-full"
+                            >
+                                {createNumberMutation.isPending ? "Creando..." : "Crear y Escanear QR"}
                             </Button>
                         </div>
                     </DialogContent>
