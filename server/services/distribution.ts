@@ -49,15 +49,16 @@ export async function distributeConversation(conversationId: number) {
         // If lastIndex is last element, nextAgent remains index 0 (cycle)
     }
 
-    // 4. Assign
-    await db.update(conversations)
-        .set({ assignedToId: nextAgent.id })
-        .where(eq(conversations.id, conversationId));
+    // 4. Assign & 5. Update last assigned (Atomic Transaction)
+    await db.transaction(async (tx) => {
+        await tx.update(conversations)
+            .set({ assignedToId: nextAgent.id })
+            .where(eq(conversations.id, conversationId));
 
-    // 5. Update last assigned
-    await db.update(appSettings)
-        .set({ lastAssignedAgentId: nextAgent.id })
-        .where(eq(appSettings.id, settings.id));
+        await tx.update(appSettings)
+            .set({ lastAssignedAgentId: nextAgent.id })
+            .where(eq(appSettings.id, settings.id));
+    });
 
     console.log(`[Distribution] Assigned conversation ${conversationId} to agent ${nextAgent.name} (${nextAgent.id})`);
 }

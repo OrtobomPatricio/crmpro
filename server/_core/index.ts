@@ -105,7 +105,6 @@ async function startServer() {
         process.env.CLIENT_URL,
         process.env.VITE_API_URL,
         process.env.VITE_OAUTH_PORTAL_URL,
-        "https://168.231.98.244.nip.io" // Hardcoded fallback for immediate fix
       ].filter(Boolean).map(url => normalize(url!));
 
       if (allowedOrigins.includes(normalize(origin))) {
@@ -122,6 +121,7 @@ async function startServer() {
   const allowedSet = new Set([
     process.env.CLIENT_URL,
     process.env.VITE_API_URL,
+    process.env.VITE_OAUTH_PORTAL_URL,
   ].filter(Boolean) as string[]);
 
   app.use((req, res, next) => {
