@@ -74,6 +74,20 @@ export const BaileysService = {
             }
         });
 
+        sock.ev.on('messages.upsert', async (m) => {
+            if (m.type === 'notify') {
+                for (const msg of m.messages) {
+                    // Check if it's a message from another user (not us)
+                    if (!msg.key.fromMe) {
+                        // Import dynamically or use imported service
+                        // We should import MessageHandler at top level if possible, but for now specific call:
+                        const { MessageHandler } = await import("./message-handler");
+                        await MessageHandler.handleIncomingMessage(userId, msg);
+                    }
+                }
+            }
+        });
+
         return sock;
     },
 
