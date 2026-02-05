@@ -192,6 +192,28 @@ export default function KanbanBoard() {
     return null;
   };
 
+  const persistStageOrder = async (stageId: number) => {
+    const orderedLeadIds = (board[stageId] ?? []).map((l) => l.id);
+    await reorderKanban.mutateAsync({ pipelineStageId: stageId, orderedLeadIds });
+  };
+
+  // -- Won Dialog State --
+  const [wonDialog, setWonDialog] = useState<{ open: boolean; leadId: number | null; stageId: number | null }>(
+    {
+      open: false,
+      leadId: null,
+      stageId: null,
+    }
+  );
+  const [wonValue, setWonValue] = useState("");
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const lead = active.data.current as Lead;
+    setActiveDragItem(lead);
+    dragSnapshotRef.current = deepCloneBoard(board);
+  };
+
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
     if (!over) return;
