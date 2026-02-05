@@ -199,18 +199,24 @@ export function WhatsAppConnectionsList() {
                             <div className="text-xs text-muted-foreground mt-2 mb-4">
                                 {num.number?.displayName || "Sin nombre"}
                             </div>
-                            <div className="flex gap-2">
+                            <div className="grid grid-cols-4 gap-2">
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="w-full"
+                                    className="col-span-3 w-full"
                                     onClick={() => handleConnectQR(num.id)}
                                     disabled={num.isConnected}
                                 >
                                     <QrCode className="h-4 w-4 mr-2" />
                                     {num.isConnected ? 'Vinculado' : 'Ver QR'}
                                 </Button>
-                                <Button variant="ghost" size="icon" onClick={() => setDeleteId(num.id)}>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="col-span-1 w-full border-red-200 hover:bg-red-50 hover:text-red-600 text-red-500"
+                                    onClick={() => setDeleteId(num.id)}
+                                    title="Eliminar Conexión"
+                                >
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
                             </div>
